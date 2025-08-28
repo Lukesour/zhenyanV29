@@ -13,11 +13,11 @@ class UserBackground(BaseModel):
     
     # Language scores (optional)
     language_test_type: Optional[str] = None  # "TOEFL" or "IELTS"
-    language_total_score: Optional[int] = None
-    language_reading: Optional[int] = None
-    language_listening: Optional[int] = None
-    language_speaking: Optional[int] = None
-    language_writing: Optional[int] = None
+    language_total_score: Optional[float] = None
+    language_reading: Optional[float] = None
+    language_listening: Optional[float] = None
+    language_speaking: Optional[float] = None
+    language_writing: Optional[float] = None
     
     # Standardized test scores (optional)
     gre_total: Optional[int] = None

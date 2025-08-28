@@ -191,7 +191,10 @@ const ProgressDisplay: React.FC<ProgressDisplayProps> = ({
               {currentTask?.estimated_time || progressState.estimatedTime || '预计需要 5-10 分钟'}
             </Text>
             <div>
-              <Text type="secondary">请不要退出当期页面，只需耐心等待</Text>
+              <Text type="secondary">因服务器原因，无法正常加载进度条，但已经开始分析</Text>
+            </div>
+            <div>
+              <Text type="secondary">请不要退出当期页面，可以不用停留在此页面，只需耐心等待5～10 分钟，会将分析结果自动上传</Text>
             </div>
           </div>
 
