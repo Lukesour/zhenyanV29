@@ -93,7 +93,7 @@ class AnalysisService:
             logger.info("Analyzing similar cases...")
             case_analyses = []
             partial_failures: Dict[str, str] = {}
-            total_cases = min(20, len(similar_cases))
+            total_cases = min(10, len(similar_cases))
             
             for i, case in enumerate(similar_cases[:total_cases]):
                 case_data = case.get('case_data', {})
