@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修复验证测试</title>
+</head>
+<body>
+    <h1>修复验证测试</h1>
+    <div id="status">正在测试...</div>
+    
+    <script>
+        // 模拟React组件的状态管理
+        let universities = [];
+        let majors = [];
+        let targetMajors = [];
+        let dataLoading = true;
+        
+        // 模拟数据加载
+        async function testDataLoading() {
+            try {
+                dataLoading = true;
+                updateStatus('正在加载数据...');
+                
+                const response = await fetch('/data/frontend_data.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                // 设置数据
+                universities = data.universities || [];
+                majors = data.majors || [];
+                targetMajors = data.target_majors || [];
+                
+                dataLoading = false;
+                
+                // 验证数据
+                if (universities.length === 0 || majors.length === 0 || targetMajors.length === 0) {
+                    throw new Error('数据不完整');
+                }
+                
+                updateStatus(`✅ 数据加载成功！院校: ${universities.length}, 专业: ${majors.length}, 目标专业: ${targetMajors.length}`);
+                
+                // 测试map方法
+                testMapMethods();
+                
+            } catch (error) {
+                dataLoading = false;
+                // 设置默认空数组，避免渲染错误
+                universities = [];
+                majors = [];
+                targetMajors = [];
+                
+                updateStatus(`❌ 数据加载失败: ${error.message}`);
+                console.error('数据加载错误:', error);
+            }
+        }
+        
+        function testMapMethods() {
+            try {
+                // 测试所有map方法
+                const uniOptions = universities.map(uni => ({ value: uni }));
+                const majorOptions = majors.map(major => ({ value: major }));
+                const targetMajorOptions = targetMajors.map(major => ({ label: major, value: major }));
+                
+                updateStatus(`✅ Map方法测试通过！生成选项数量: 院校(${uniOptions.length}), 专业(${majorOptions.length}), 目标专业(${targetMajorOptions.length})`);
+                
+            } catch (error) {
+                updateStatus(`❌ Map方法测试失败: ${error.message}`);
+                console.error('Map方法错误:', error);
+            }
+        }
+        
+        function updateStatus(message) {
+            document.getElementById('status').innerHTML = message;
+        }
+        
+        // 页面加载完成后测试
+        window.addEventListener('load', testDataLoading);
+    </script>
+</body>
+</html>
