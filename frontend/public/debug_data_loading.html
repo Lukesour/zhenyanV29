@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据加载调试</title>
+</head>
+<body>
+    <h1>数据加载调试</h1>
+    <div id="status">准备开始...</div>
+    <div id="details"></div>
+    <button onclick="testDataLoading()">重新测试</button>
+    
+    <script>
+        async function testDataLoading() {
+            const statusDiv = document.getElementById('status');
+            const detailsDiv = document.getElementById('details');
+            
+            try {
+                statusDiv.innerHTML = '🔄 开始加载数据...';
+                detailsDiv.innerHTML = '';
+                
+                console.log('开始加载数据...');
+                
+                const response = await fetch('/data/frontend_data.json');
+                console.log('Fetch response status:', response.status, response.ok);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('数据加载成功，原始数据:', data);
+                
+                // 验证数据结构
+                const universities = Array.isArray(data.universities) ? data.universities : [];
+                const majors = Array.isArray(data.majors) ? data.majors : [];
+                const countries = Array.isArray(data.countries) ? data.countries : [];
+                const targetMajors = Array.isArray(data.target_majors) ? data.target_majors : [];
+                
+                console.log('验证后的数据:', {
+                    universities: universities.length,
+                    majors: majors.length,
+                    countries: countries.length,
+                    targetMajors: targetMajors.length
+                });
+                
+                statusDiv.innerHTML = '✅ 数据加载成功！';
+                detailsDiv.innerHTML = `
+                    <h3>数据统计:</h3>
+                    <p>院校数量: ${universities.length}</p>
+                    <p>专业数量: ${majors.length}</p>
+                    <p>国家数量: ${countries.length}</p>
+                    <p>目标专业数量: ${targetMajors.length}</p>
+                    <h3>前5所院校:</h3>
+                    <p>${universities.slice(0, 5).join(', ')}</p>
+                    <h3>前5个专业:</h3>
+                    <p>${majors.slice(0, 5).join(', ')}</p>
+                `;
+                
+            } catch (error) {
+                console.error('数据加载失败:', error);
+                statusDiv.innerHTML = `❌ 数据加载失败: ${error.message}`;
+                detailsDiv.innerHTML = `
+                    <h3>错误详情:</h3>
+                    <p>错误类型: ${error.constructor.name}</p>
+                    <p>错误消息: ${error.message}</p>
+                    <p>错误堆栈: ${error.stack}</p>
+                `;
+            }
+        }
+        
+        // 页面加载完成后自动测试
+        window.addEventListener('load', testDataLoading);
+    </script>
+</body>
+</html>

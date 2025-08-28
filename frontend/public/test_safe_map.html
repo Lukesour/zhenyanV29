@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeMap测试</title>
+</head>
+<body>
+    <h1>SafeMap函数测试</h1>
+    <div id="results"></div>
+    
+    <script>
+        // 模拟safeMap函数
+        const safeMap = (array, mapper) => {
+            if (!Array.isArray(array)) {
+                console.warn('Attempted to map over non-array:', array);
+                return [];
+            }
+            return array.map(mapper);
+        };
+        
+        function testSafeMap() {
+            const results = [];
+            
+            // 测试1: 正常数组
+            try {
+                const normalArray = ['a', 'b', 'c'];
+                const result1 = safeMap(normalArray, item => item.toUpperCase());
+                results.push(`✅ 正常数组: ${result1.join(', ')}`);
+            } catch (error) {
+                results.push(`❌ 正常数组失败: ${error.message}`);
+            }
+            
+            // 测试2: undefined
+            try {
+                const result2 = safeMap(undefined, item => item);
+                results.push(`✅ undefined处理: ${result2.length} 个元素`);
+            } catch (error) {
+                results.push(`❌ undefined处理失败: ${error.message}`);
+            }
+            
+            // 测试3: null
+            try {
+                const result3 = safeMap(null, item => item);
+                results.push(`✅ null处理: ${result3.length} 个元素`);
+            } catch (error) {
+                results.push(`❌ null处理失败: ${error.message}`);
+            }
+            
+            // 测试4: 空数组
+            try {
+                const result4 = safeMap([], item => item);
+                results.push(`✅ 空数组处理: ${result4.length} 个元素`);
+            } catch (error) {
+                results.push(`❌ 空数组处理失败: ${error.message}`);
+            }
+            
+            // 测试5: 非数组
+            try {
+                const result5 = safeMap('not an array', item => item);
+                results.push(`✅ 非数组处理: ${result5.length} 个元素`);
+            } catch (error) {
+                results.push(`❌ 非数组处理失败: ${error.message}`);
+            }
+            
+            // 显示结果
+            document.getElementById('results').innerHTML = results.map(result => `<div>${result}</div>`).join('');
+        }
+        
+        // 页面加载完成后测试
+        window.addEventListener('load', testSafeMap);
+    </script>
+</body>
+</html>
