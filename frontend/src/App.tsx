@@ -98,6 +98,11 @@ function App() {
     try {
       console.log('Starting analysis with verified user background:', appState.userBackground);
       
+      // 检查用户背景数据是否存在
+      if (!appState.userBackground) {
+        throw new Error('用户背景数据缺失，无法开始分析');
+      }
+      
       // 转换到进度状态
       updateAppState({ 
         currentStep: 'progress',
