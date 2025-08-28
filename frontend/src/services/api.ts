@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { isAxiosError } from 'axios';
 
 // API基础配置
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -241,7 +241,7 @@ export const apiService = {
       } catch (error) {
         console.error('轮询分析任务状态时出错:', error);
         // 如果是网络错误，继续重试
-        if (axios.isAxiosError(error) && !error.response) {
+        if (isAxiosError(error) && !error.response) {
           await new Promise(resolve => setTimeout(resolve, pollInterval));
           continue;
         }
