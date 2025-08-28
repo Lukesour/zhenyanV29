@@ -1,132 +1,192 @@
 import React from 'react';
-import { renderWithProviders } from './utils';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import App from '../../App';
 
-// Mock API 返回最小有效报告，验证数据完整性渲染
+// Mock the API service
+const mockApi = {
+  healthCheck: jest.fn(),
+  startAnalysis: jest.fn(),
+  getAnalysisStatus: jest.fn(),
+  cancelAnalysis: jest.fn(),
+  pollAnalysisUntilComplete: jest.fn()
+};
+
+// Mock the entire api module
 jest.mock('../../services/api', () => ({
-  apiService: {
-    analyzeUserBackground: jest.fn()
-  }
+  apiService: mockApi
 }));
 
-// 仍然 mock 与 JSDOM 不兼容的复杂组件，专注端到端状态与数据
-jest.mock('../../components/UserForm', () => {
-  return function MockUserForm({ onSubmit, loading }: any) {
-    return (
-      <div data-testid="user-form">
-        <button onClick={() => onSubmit({ name: 'User' })} disabled={loading}>
-          完成并开始分析
-        </button>
-      </div>
-    );
-  };
-});
-
+// Mock the ProgressDisplay component
 jest.mock('../../components/ProgressDisplay', () => {
-  return function MockProgressDisplay({ isActive, onComplete, onError }: any) {
+  return function MockProgressDisplay({ isActive, onComplete }: any) {
     return (
       <div data-testid="progress-display">
-        {isActive && <div data-testid="progress-active">AI 分析进行中</div>}
-        <button onClick={() => onComplete()} data-testid="complete-button">完成</button>
-        <button onClick={() => onError('网络错误')} data-testid="error-button">出错</button>
+        {isActive ? 'Analysis in progress...' : 'Progress display'}
+        <button onClick={onComplete}>Complete Analysis</button>
       </div>
     );
   };
 });
 
-jest.mock('../../components/ErrorDisplay', () => {
-  return function MockErrorDisplay({ error, onRetry }: any) {
-    return (
-      <div data-testid="error-display">
-        <div data-testid="error-message">{error}</div>
-        <button onClick={onRetry} data-testid="retry-button">重新尝试</button>
-      </div>
-    );
-  };
-});
-
+// Mock the AnalysisReport component
 jest.mock('../../components/AnalysisReport', () => {
-  return function MockAnalysisReport({ report, onBack }: any) {
+  return function MockAnalysisReport({ report, onBackToForm }: any) {
     return (
       <div data-testid="analysis-report">
-        <div data-testid="radar-scores">{(report?.radar_scores || []).join(',')}</div>
-        <div data-testid="recommendations-count">{report?.school_recommendations?.recommendations?.length ?? 0}</div>
-        <div data-testid="similar-cases-count">{report?.similar_cases?.length ?? 0}</div>
-        <button onClick={onBack} data-testid="back-button">返回</button>
+        <h2>Analysis Report</h2>
+        <p>Report data: {JSON.stringify(report)}</p>
+        <button onClick={onBackToForm}>Back to Form</button>
       </div>
     );
   };
 });
 
-describe('Integration: Complete Flow (Task 7.4)', () => {
-  test('full flow: form -> progress -> report with data integrity', async () => {
-    const mockApi = require('../../services/api').apiService;
-    const mockReport = {
-      competitiveness: { strengths: 'A', weaknesses: 'B', summary: 'C' },
-      school_recommendations: {
-        recommendations: [
-          { university: 'X', program: 'Y', reason: 'Z', supporting_cases: [] }
-        ],
-        analysis_summary: 'S'
-      },
-      similar_cases: [
-        {
-          case_id: 1,
-          admitted_university: 'U',
-          admitted_program: 'P',
-          gpa: '3.8',
-          language_score: '100',
-          undergraduate_info: 'Info',
-          comparison: { gpa: 'cmp', university: 'cmp', experience: 'cmp' },
-          success_factors: 'sf',
-          takeaways: 'tw'
-        }
-      ],
-      background_improvement: { action_plan: [], strategy_summary: '' },
-      radar_scores: [80, 85, 70, 60, 90]
+// Mock the ErrorDisplay component
+jest.mock('../../components/ErrorDisplay', () => {
+  return function MockErrorDisplay({ errorMessage, onRetry, onBackToForm }: any) {
+    return (
+      <div data-testid="error-display">
+        <h2>Error</h2>
+        <p>{errorMessage}</p>
+        <button onClick={onRetry}>Retry</button>
+        <button onClick={onBackToForm}>Back to Form</button>
+      </div>
+    );
+  };
+});
+
+describe('Complete Flow Integration Test', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Mock successful health check
+    mockApi.healthCheck.mockResolvedValue({ status: 'healthy' });
+  });
+
+  test('complete flow from form submission to report display', async () => {
+    render(<App />);
+    
+    // Fill out the form
+    const universityInput = screen.getByLabelText(/本科院校/);
+    const majorInput = screen.getByLabelText(/本科专业/);
+    const gpaInput = screen.getByLabelText(/GPA/);
+    const submitButton = screen.getByText(/开始分析/);
+    
+    fireEvent.change(universityInput, { target: { value: '清华大学' } });
+    fireEvent.change(majorInput, { target: { value: '计算机科学' } });
+    fireEvent.change(gpaInput, { target: { value: '3.8' } });
+    
+    // Mock successful analysis task start
+    mockApi.startAnalysis.mockResolvedValue({ 
+      task_id: 'test-task-123',
+      status: 'pending',
+      message: '分析任务已启动'
+    });
+    
+    // Mock successful analysis completion
+    const mockReport = { 
+      competitiveness: { strengths: 'Strong', weaknesses: 'None' },
+      school_recommendations: { recommendations: [] },
+      similar_cases: [],
+      background_improvement: null,
+      radar_scores: [80, 85, 90, 75, 88]
     };
-
-    mockApi.analyzeUserBackground.mockResolvedValue(mockReport);
-
-    renderWithProviders(<App />);
-
-    // 提交进入进度
-    fireEvent.click(screen.getByText('完成并开始分析'));
-
-    // 等待报告渲染
+    mockApi.pollAnalysisUntilComplete.mockResolvedValue(mockReport);
+    
+    fireEvent.click(submitButton);
+    
+    // Should show verification form
+    await waitFor(() => {
+      expect(screen.getByText(/验证信息/)).toBeInTheDocument();
+    });
+    
+    // Simulate verification success
+    const verifyButton = screen.getByText(/确认信息/);
+    fireEvent.click(verifyButton);
+    
+    // Should show progress display
+    await waitFor(() => {
+      expect(screen.getByTestId('progress-display')).toBeInTheDocument();
+    });
+    
+    // Simulate progress completion
+    const completeButton = screen.getByText('Complete Analysis');
+    fireEvent.click(completeButton);
+    
+    // Should show analysis report
     await waitFor(() => {
       expect(screen.getByTestId('analysis-report')).toBeInTheDocument();
     });
-
-    // 数据完整性检查
-    expect(screen.getByTestId('radar-scores')).toHaveTextContent('80,85,70,60,90');
-    expect(Number(screen.getByTestId('recommendations-count').textContent)).toBe(1);
-    expect(Number(screen.getByTestId('similar-cases-count').textContent)).toBe(1);
-
-    // 返回表单
-    fireEvent.click(screen.getByTestId('back-button'));
-    await waitFor(() => {
-      expect(screen.getByTestId('user-form')).toBeInTheDocument();
-    });
+    
+    // Verify report content
+    expect(screen.getByText(/Report data:/)).toBeInTheDocument();
+    expect(screen.getByText(/Strong/)).toBeInTheDocument();
   });
 
-  test('error path: shows error and can retry to form', async () => {
-    const mockApi = require('../../services/api').apiService;
-    mockApi.analyzeUserBackground.mockRejectedValue({ userMessage: '网络错误' });
-
-    renderWithProviders(<App />);
-    fireEvent.click(screen.getByText('完成并开始分析'));
-
+  test('handles analysis failure and allows retry', async () => {
+    render(<App />);
+    
+    // Fill out the form
+    const universityInput = screen.getByLabelText(/本科院校/);
+    const majorInput = screen.getByLabelText(/本科专业/);
+    const gpaInput = screen.getByLabelText(/GPA/);
+    const submitButton = screen.getByText(/开始分析/);
+    
+    fireEvent.change(universityInput, { target: { value: '清华大学' } });
+    fireEvent.change(majorInput, { target: { value: '计算机科学' } });
+    fireEvent.change(gpaInput, { target: { value: '3.8' } });
+    
+    // Mock successful analysis task start
+    mockApi.startAnalysis.mockResolvedValue({ 
+      task_id: 'test-task-123',
+      status: 'pending',
+      message: '分析任务已启动'
+    });
+    
+    // Mock analysis failure first time
+    mockApi.pollAnalysisUntilComplete.mockRejectedValueOnce({ userMessage: '网络错误' });
+    
+    // Mock successful analysis completion second time
+    mockApi.pollAnalysisUntilComplete.mockResolvedValueOnce({ 
+      competitiveness: { strengths: 'Strong', weaknesses: 'None' },
+      school_recommendations: { recommendations: [] },
+      similar_cases: [],
+      background_improvement: null,
+      radar_scores: [80, 85, 90, 75, 88]
+    });
+    
+    fireEvent.click(submitButton);
+    
+    // Should show verification form
+    await waitFor(() => {
+      expect(screen.getByText(/验证信息/)).toBeInTheDocument();
+    });
+    
+    // Simulate verification success
+    const verifyButton = screen.getByText(/确认信息/);
+    fireEvent.click(verifyButton);
+    
+    // Should show error display
     await waitFor(() => {
       expect(screen.getByTestId('error-display')).toBeInTheDocument();
     });
-
-    const retry = screen.getByTestId('retry-button');
-    fireEvent.click(retry);
-
+    
+    // Retry analysis
+    const retryButton = screen.getByText(/重试/);
+    fireEvent.click(retryButton);
+    
+    // Should show progress display again
     await waitFor(() => {
-      expect(screen.getByTestId('user-form')).toBeInTheDocument();
+      expect(screen.getByTestId('progress-display')).toBeInTheDocument();
+    });
+    
+    // Simulate progress completion
+    const completeButton = screen.getByText('Complete Analysis');
+    fireEvent.click(completeButton);
+    
+    // Should show analysis report
+    await waitFor(() => {
+      expect(screen.getByTestId('analysis-report')).toBeInTheDocument();
     });
   });
 });

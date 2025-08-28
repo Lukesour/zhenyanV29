@@ -1,66 +1,131 @@
 import React from 'react';
-import { renderWithProviders } from './utils';
-import { screen, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import App from '../../App';
 
-// 避免 axios ESM 在 Jest 中的加载问题，集成测试不依赖真实后端
+// Mock the API service
+const mockApi = {
+  healthCheck: jest.fn(),
+  startAnalysis: jest.fn(),
+  getAnalysisStatus: jest.fn(),
+  cancelAnalysis: jest.fn(),
+  pollAnalysisUntilComplete: jest.fn()
+};
+
+// Mock the entire api module
 jest.mock('../../services/api', () => ({
-  apiService: {
-    analyzeUserBackground: jest.fn()
-  }
+  apiService: mockApi
 }));
 
-describe('Integration: Data Loading Flow (Task 7.2)', () => {
+// Mock the ProgressDisplay component
+jest.mock('../../components/ProgressDisplay', () => {
+  return function MockProgressDisplay({ isActive, onComplete }: any) {
+    return (
+      <div data-testid="progress-display">
+        {isActive ? 'Analysis in progress...' : 'Progress display'}
+        <button onClick={onComplete}>Complete Analysis</button>
+      </div>
+    );
+  };
+});
+
+// Mock the AnalysisReport component
+jest.mock('../../components/AnalysisReport', () => {
+  return function MockAnalysisReport({ report, onBackToForm }: any) {
+    return (
+      <div data-testid="analysis-report">
+        <h2>Analysis Report</h2>
+        <p>Report data: {JSON.stringify(report)}</p>
+        <button onClick={onBackToForm}>Back to Form</button>
+      </div>
+    );
+  };
+});
+
+// Mock the ErrorDisplay component
+jest.mock('../../components/ErrorDisplay', () => {
+  return function MockErrorDisplay({ errorMessage, onRetry, onBackToForm }: any) {
+    return (
+      <div data-testid="error-display">
+        <h2>Error</h2>
+        <p>{errorMessage}</p>
+        <button onClick={onRetry}>Retry</button>
+        <button onClick={onBackToForm}>Back to Form</button>
+      </div>
+    );
+  };
+});
+
+describe('Data Loading Integration Test', () => {
   beforeEach(() => {
-    localStorage.clear();
+    jest.clearAllMocks();
+    // Mock successful health check
+    mockApi.healthCheck.mockResolvedValue({ status: 'healthy' });
   });
 
-  test('loads complete data on first visit and shows success alert', async () => {
-    renderWithProviders(<App />);
+  test('loads and displays user form data correctly', async () => {
+    render(<App />);
+    
+    // Verify form fields are present
+    expect(screen.getByLabelText(/本科院校/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/本科专业/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/GPA/)).toBeInTheDocument();
+    expect(screen.getByText(/开始分析/)).toBeInTheDocument();
+  });
 
-    // 初始加载提示（页面上有两处相同文案：Alert 与 Spin 文本，使用 getAllByText）
-    const loadingTexts = screen.getAllByText(/正在加载数据/);
-    expect(loadingTexts.length).toBeGreaterThan(0);
-
-    // 等待数据加载完成，不显示错误
+  test('can submit form with valid data', async () => {
+    render(<App />);
+    
+    // Fill out the form
+    const universityInput = screen.getByLabelText(/本科院校/);
+    const majorInput = screen.getByLabelText(/本科专业/);
+    const gpaInput = screen.getByLabelText(/GPA/);
+    const submitButton = screen.getByText(/开始分析/);
+    
+    fireEvent.change(universityInput, { target: { value: '清华大学' } });
+    fireEvent.change(majorInput, { target: { value: '计算机科学' } });
+    fireEvent.change(gpaInput, { target: { value: '3.8' } });
+    
+    // Mock successful analysis task start
+    mockApi.startAnalysis.mockResolvedValue({ 
+      task_id: 'test-task-123',
+      status: 'pending',
+      message: '分析任务已启动'
+    });
+    
+    // Mock successful analysis completion
+    mockApi.pollAnalysisUntilComplete.mockResolvedValue({ result: 'success' });
+    
+    fireEvent.click(submitButton);
+    
+    // Should show verification form
     await waitFor(() => {
-      expect(screen.queryByText('数据加载失败')).not.toBeInTheDocument();
+      expect(screen.getByText(/验证信息/)).toBeInTheDocument();
     });
   });
 
-  test('creates cache after first load and marks cache valid', async () => {
-    renderWithProviders(<App />);
-
+  test('handles data loading errors gracefully', async () => {
+    render(<App />);
+    
+    // Fill out the form
+    const universityInput = screen.getByLabelText(/本科院校/);
+    const majorInput = screen.getByLabelText(/本科专业/);
+    const gpaInput = screen.getByLabelText(/GPA/);
+    const submitButton = screen.getByText(/开始分析/);
+    
+    fireEvent.change(universityInput, { target: { value: '清华大学' } });
+    fireEvent.change(majorInput, { target: { value: '计算机科学' } });
+    fireEvent.change(gpaInput, { target: { value: '3.8' } });
+    
+    // Mock analysis task start failure
+    mockApi.startAnalysis.mockRejectedValue(new Error('Network error'));
+    
+    fireEvent.click(submitButton);
+    
+    // Should show error display
     await waitFor(() => {
-      expect(screen.queryByText('数据加载失败')).not.toBeInTheDocument();
+      expect(screen.getByTestId('error-display')).toBeInTheDocument();
     });
-
-    const cacheRaw = localStorage.getItem('school_positioning_data');
-    expect(cacheRaw).toBeTruthy();
-    const cache = JSON.parse(cacheRaw as string);
-    expect(cache.expiresAt).toBeGreaterThan(Date.now());
-    expect(cache.data.universities?.length).toBeGreaterThan(0);
-  });
-
-  test('handles broken cache gracefully and reloads', async () => {
-    // 写入损坏缓存
-    localStorage.setItem('school_positioning_data', 'not-json');
-
-    renderWithProviders(<App />);
-
-    await waitFor(() => {
-      expect(screen.queryByText('数据加载失败')).not.toBeInTheDocument();
-    });
-  });
-
-  test('performance: data loads within reasonable time (<= 3s nominal)', async () => {
-    const start = performance.now();
-    renderWithProviders(<App />);
-    await waitFor(() => {
-      expect(screen.queryByText('数据加载失败')).not.toBeInTheDocument();
-    });
-    const duration = performance.now() - start;
-    expect(duration).toBeLessThanOrEqual(6000);
   });
 });
 

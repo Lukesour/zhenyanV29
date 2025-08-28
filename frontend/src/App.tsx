@@ -92,11 +92,6 @@ function App() {
   };
 
   const handleVerificationSuccess = async () => {
-    if (!appState.userBackground) {
-      console.error('No user background data available');
-      return;
-    }
-
     // 开始加载状态
     updateAppState({ isLoading: true });
     
@@ -109,8 +104,20 @@ function App() {
         isProgressActive: true 
       });
       
-      // 开始分析
-      const report = await apiService.analyzeUserBackground(appState.userBackground);
+      // 启动异步分析任务
+      const task = await apiService.startAnalysis(appState.userBackground);
+      console.log('Analysis task started:', task);
+      
+      // 轮询任务直到完成
+      const report = await apiService.pollAnalysisUntilComplete(
+        task.task_id,
+        (updatedTask) => {
+          console.log('Task progress update:', updatedTask);
+          // 这里可以更新进度显示，如果需要的话
+        },
+        5000, // 5秒轮询一次
+        600000 // 最大轮询10分钟
+      );
       
       console.log('Analysis report received:', report);
       
