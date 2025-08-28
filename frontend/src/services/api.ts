@@ -1,4 +1,4 @@
-import axios, { isAxiosError } from 'axios';
+import axios from 'axios';
 
 // API基础配置
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -55,6 +55,11 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// 检查是否为 axios 错误的辅助函数
+function isAxiosError(error: any): error is any {
+  return error && typeof error === 'object' && 'isAxiosError' in error;
+}
 
 // 任务状态类型
 export interface AnalysisTask {
