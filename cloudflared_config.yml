@@ -1,0 +1,13 @@
+tunnel: zhenyanasia
+protocol: http2
+
+ingress:
+  # Rule for your front-end
+  - hostname: zhenyan.asia
+    service: http://localhost:3000
+  # Rule for your back-end API
+  - hostname: api.zhenyan.asia
+    service: http://localhost:8000
+  # Catch-all rule to show a 404 for other hostnames
+  - service: http_status:404
+
