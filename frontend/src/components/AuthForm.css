@@ -204,7 +204,7 @@
   }
   
   .auth-content .ant-row {
-    flex-direction: column-reverse;
+    flex-direction: column;
   }
   
   .contact-qr-image {

@@ -11,7 +11,7 @@ import SystemTest from './components/SystemTest';
 import EmailVerificationDemo from './components/EmailVerificationDemo';
 import DebugPanel from './components/DebugPanel';
 import authService, { UserInfo, AuthState } from './services/authService';
-import { apiService, UserBackground, AnalysisReport as AnalysisReportType } from './services/api';
+import { UserBackground, AnalysisReport as AnalysisReportType } from './services/api';
 import './App.css';
 
 // 应用状态枚举
@@ -42,15 +42,37 @@ function App() {
 
   // 状态更新函数
   const updateAppState = useCallback((updates: Partial<AppStateData>) => {
-    setAppState(prev => ({ ...prev, ...updates }));
+    console.log('updateAppState called with:', updates);
+    setAppState(prev => {
+      const newState = { ...prev, ...updates };
+      console.log('App state updated from:', prev.currentStep, 'to:', newState.currentStep);
+      return newState;
+    });
   }, []);
 
   // 监听认证状态变化
   useEffect(() => {
     const handleAuthStateChange = (newAuthState: AuthState) => {
-      updateAppState({
-        authState: newAuthState,
-        currentStep: newAuthState.isAuthenticated ? 'form' : 'auth'
+      console.log('Auth state changed:', newAuthState);
+
+      // 使用 setAppState 的函数形式来获取最新的状态
+      setAppState(prevState => {
+        console.log('Current step when auth changed:', prevState.currentStep);
+
+        // 如果当前在进度页面或报告页面，不要重置状态
+        if (prevState.currentStep === 'progress' || prevState.currentStep === 'report') {
+          console.log('Skipping state change because user is in progress/report');
+          return {
+            ...prevState,
+            authState: newAuthState
+          };
+        }
+
+        // 只更新认证状态，不强制改变当前步骤
+        return {
+          ...prevState,
+          authState: newAuthState
+        };
       });
     };
 
@@ -58,6 +80,7 @@ function App() {
 
     // 初始化时检查认证状态
     const initialAuthState = authService.getAuthState();
+    console.log('Initial auth state:', initialAuthState);
     updateAppState({
       authState: initialAuthState,
       currentStep: 'form' // 始终显示表单，让用户点击分析时再检查认证
@@ -99,36 +122,35 @@ function App() {
   // }, [appState.currentStep, validateStateTransition, updateAppState]);
 
   // 认证成功处理
-  const handleAuthSuccess = async (userInfo: UserInfo) => {
+  const handleAuthSuccess = async (userInfo: UserInfo, passedUserBackground?: UserBackground | null) => {
     console.log('User authenticated:', userInfo);
+    console.log('Passed userBackground:', passedUserBackground);
+    console.log('Current appState userBackground:', appState.userBackground);
 
     // 更新认证状态
     const newAuthState = authService.getAuthState();
 
-    // 如果有保存的用户背景数据，登录后直接开始分析
-    if (appState.userBackground) {
-      updateAppState({
-        currentStep: 'progress',
-        isProgressActive: true,
-        isLoading: true,
-        authState: newAuthState
-      });
+    // 优先使用传递的userBackground，然后是appState中的userBackground
+    const currentUserBackground = passedUserBackground || appState.userBackground;
 
-      // 等待状态更新完成后再开始分析
-      setTimeout(async () => {
-        try {
-          await startAnalysis(appState.userBackground!);
-        } catch (error) {
-          console.error('Analysis failed after auth:', error);
-          updateAppState({
-            currentStep: 'error',
-            errorMessage: error instanceof Error ? error.message : '分析失败，请稍后重试',
-            isLoading: false,
-            isProgressActive: false
-          });
-        }
-      }, 200);
+    // 如果有保存的用户背景数据，登录后直接开始分析
+    if (currentUserBackground) {
+      console.log('有用户背景数据，跳转到进度页面:', currentUserBackground);
+
+      // 使用 setTimeout 确保状态更新不会被其他逻辑覆盖
+      setTimeout(() => {
+        console.log('Delayed state update to progress page');
+        updateAppState({
+          currentStep: 'progress',
+          isProgressActive: true,
+          isLoading: true,
+          authState: newAuthState,
+          userBackground: currentUserBackground // 确保userBackground不会丢失
+        });
+      }, 100);
+      // ProgressDisplay 组件会自动开始分析
     } else {
+      console.log('没有用户背景数据，回到表单页面');
       // 否则回到表单页面，如果用户有个人信息，会自动填入表单
       updateAppState({
         currentStep: 'form',
@@ -137,48 +159,7 @@ function App() {
     }
   };
 
-  // 开始分析的独立函数
-  const startAnalysis = async (userBackground: UserBackground) => {
-    try {
-      console.log('Starting analysis with user background:', userBackground);
-
-      // 启动异步分析任务
-      const task = await apiService.startAnalysis(userBackground);
-      console.log('Analysis task started:', task);
-
-      // 轮询任务直到完成
-      const report = await apiService.pollAnalysisUntilComplete(
-        task.task_id,
-        (updatedTask) => {
-          console.log('Task progress update:', updatedTask);
-          // 这里可以更新进度显示，如果需要的话
-        },
-        5000, // 5秒轮询一次
-        600000 // 最大轮询10分钟
-      );
-
-      console.log('Analysis report received:', report);
-
-      // 分析完成，转换到报告状态
-      updateAppState({
-        currentStep: 'report',
-        analysisReport: report,
-        isLoading: false,
-        isProgressActive: false
-      });
-
-    } catch (error) {
-      console.error('Analysis failed:', error);
-
-      // 转换到错误状态
-      updateAppState({
-        currentStep: 'error',
-        errorMessage: error instanceof Error ? error.message : '分析失败，请稍后重试',
-        isLoading: false,
-        isProgressActive: false
-      });
-    }
-  };
+  // 注意：分析逻辑现在由 ProgressDisplay 组件处理
 
   // 退出登录处理
   const handleLogout = async () => {
@@ -214,8 +195,12 @@ function App() {
   };
 
   const handleFormSubmit = async (userBackground: UserBackground) => {
+    console.log('handleFormSubmit called with:', userBackground);
+    console.log('Current auth state:', appState.authState.isAuthenticated);
+
     // 检查用户是否已认证
     if (!appState.authState.isAuthenticated) {
+      console.log('User not authenticated, saving userBackground and redirecting to auth');
       // 保存用户背景数据，登录后继续分析
       updateAppState({
         currentStep: 'auth',
@@ -233,8 +218,7 @@ function App() {
       isProgressActive: true
     });
 
-    // 开始分析
-    await startAnalysis(userBackground);
+    // ProgressDisplay 组件会自动开始分析
   };
 
   const handleBackToForm = () => {
@@ -279,16 +263,44 @@ function App() {
         );
 
       case 'progress':
+        // 确保有用户背景数据才显示进度页面
+        if (!appState.userBackground) {
+          console.error('Progress page accessed without userBackground, redirecting to form');
+          updateAppState({ currentStep: 'form' });
+          return (
+            <div>
+              {appState.authState.isAuthenticated && (
+                <UserDashboard />
+              )}
+              <UserForm onSubmit={handleFormSubmit} />
+            </div>
+          );
+        }
+
         return (
           <div>
             <UserDashboard />
             <ProgressDisplay
               isActive={appState.isProgressActive}
-              onComplete={() => {
+              userBackground={appState.userBackground}
+              onComplete={(result) => {
                 // 进度完成后自动转换到报告状态
-                if (appState.analysisReport) {
-                  updateAppState({ currentStep: 'report' });
-                }
+                updateAppState({
+                  currentStep: 'report',
+                  analysisReport: result,
+                  isLoading: false,
+                  isProgressActive: false
+                });
+              }}
+              onError={(error) => {
+                // 处理分析错误
+                console.error('ProgressDisplay error:', error);
+                updateAppState({
+                  currentStep: 'error',
+                  errorMessage: error,
+                  isLoading: false,
+                  isProgressActive: false
+                });
               }}
             />
           </div>

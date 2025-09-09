@@ -10,7 +10,7 @@ const { Title, Text } = Typography;
 const { TabPane } = Tabs;
 
 interface AuthFormProps {
-  onAuthSuccess: (userInfo: any) => void;
+  onAuthSuccess: (userInfo: any, userBackground?: UserBackground | null) => void;
   onBackToForm: () => void;
   userBackground?: UserBackground | null; // 添加用户背景数据，用于注册时保存
 }
@@ -49,6 +49,9 @@ const AuthForm: React.FC<AuthFormProps> = ({
   const [countdown, setCountdown] = useState(0);
   const [captchaData, setCaptchaData] = useState<any>(null);
   const [captchaAnswer, setCaptchaAnswer] = useState('');
+
+  // 调试日志：检查userBackground是否正确传递
+  console.log('AuthForm received userBackground:', userBackground);
 
   // 发送验证码
   const sendVerificationCode = async (email: string, phone: string) => {
@@ -142,7 +145,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
 
         // 等待一小段时间确保状态更新完成，然后调用成功回调
         setTimeout(() => {
-          onAuthSuccess(data.user_info);
+          onAuthSuccess(data.user_info, userBackground);
         }, 100);
       } else {
         const errorData = await response.json();
@@ -188,7 +191,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
 
         // 等待一小段时间确保状态更新完成，然后调用成功回调
         setTimeout(() => {
-          onAuthSuccess(data.user_info);
+          onAuthSuccess(data.user_info, userBackground);
         }, 100);
       } else {
         const errorData = await response.json();
@@ -233,7 +236,55 @@ const AuthForm: React.FC<AuthFormProps> = ({
     <div className="auth-container">
       <div className="auth-content">
         <Row gutter={[48, 24]} align="middle" justify="center">
-          {/* 左侧：登录注册表单 */}
+          {/* 左侧：客服信息 */}
+          <Col xs={24} lg={12}>
+            <Card className="contact-card">
+              <div className="contact-content">
+                <div className="contact-header">
+                  <Title level={4} className="contact-title">
+                    需要帮助？
+                  </Title>
+                  <Text type="secondary" className="contact-subtitle">
+                    联系我们的客服团队
+                  </Text>
+                </div>
+
+                <div className="contact-image-container">
+                  <div className="contact-qr-container">
+                    <img
+                      src="/wechat-qr.jpg"
+                      alt="客服微信二维码"
+                      className="contact-qr-image"
+                    />
+                    <Text className="qr-caption">扫描二维码添加客服</Text>
+                  </div>
+                </div>
+
+                <div className="contact-details">
+                  <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                    <div className="contact-item">
+                      <Text strong className="contact-label">服务时间</Text>
+                      <Text className="contact-value">周一至周日 9:00-21:00</Text>
+                    </div>
+                    <div className="contact-item">
+                      <Text strong className="contact-label">响应时间</Text>
+                      <Text className="contact-value">通常在1小时内回复</Text>
+                    </div>
+                    <div className="contact-item">
+                      <Text strong className="contact-label">服务内容</Text>
+                      <Text className="contact-value">
+                        • 注册登录问题<br/>
+                        • 留学申请咨询<br/>
+                        • 技术支持服务
+                      </Text>
+                    </div>
+                  </Space>
+                </div>
+              </div>
+            </Card>
+          </Col>
+
+          {/* 右侧：登录注册表单 */}
           <Col xs={24} lg={12}>
             <Card className="auth-card">
               <div className="auth-header">
@@ -436,46 +487,6 @@ const AuthForm: React.FC<AuthFormProps> = ({
                     <li>如遇问题，请联系客服获取帮助</li>
                   </ul>
                 </Text>
-              </div>
-            </Card>
-          </Col>
-
-          {/* 右侧：客服信息 */}
-          <Col xs={24} lg={12}>
-            <Card className="contact-card">
-              <div className="contact-content">
-                <div className="contact-header">
-                  <Title level={4} className="contact-title">
-                    需要帮助？
-                  </Title>
-                  <Text type="secondary" className="contact-subtitle">
-                    联系我们的客服团队
-                  </Text>
-                </div>
-
-                <div className="contact-image-container">
-                  <div className="contact-qr-container">
-                    <img 
-                      src="/wechat-qr.jpg" 
-                      alt="客服微信二维码" 
-                      className="contact-qr-image"
-                    />
-                    <Text className="qr-caption">扫描二维码添加客服</Text>
-                  </div>
-                </div>
-
-                <div className="contact-info">
-                  <Space direction="vertical" size="small" className="contact-details">
-                    <Text strong>客服微信号1：</Text>
-                    <Text copyable className="contact-id">Godeternitys</Text>
-
-                    <Text strong>客服微信号2：</Text>
-                    <Text copyable className="contact-id">MalachiSuan</Text>
-
-                    <Text strong>服务时间：</Text>
-                    <Text>周一至周日 9:00-21:00</Text>
-                  </Space>
-                </div>
               </div>
             </Card>
           </Col>

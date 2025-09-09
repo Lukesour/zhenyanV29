@@ -34,8 +34,10 @@ const ProgressDisplay: React.FC<ProgressDisplayProps> = ({
   const [pollingError, setPollingError] = useState<string | null>(null);
 
   const handleStart = useCallback(async () => {
+    console.log('ProgressDisplay handleStart called with userBackground:', userBackground);
     if (!userBackground) {
       console.error('用户背景数据缺失');
+      onError?.('用户背景数据缺失');
       return;
     }
 
