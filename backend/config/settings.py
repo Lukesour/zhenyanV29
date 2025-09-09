@@ -20,7 +20,20 @@ class Settings:
     
     # Gemini API Configuration
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    
+
+    # Gmail SMTP Configuration
+    GMAIL_SENDER_EMAIL = os.getenv("GMAIL_SENDER_EMAIL", "")
+    GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
+    GMAIL_SENDER_NAME = os.getenv("GMAIL_SENDER_NAME", "箴言留学")
+
+    # JWT Configuration
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+    JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+    JWT_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRE_HOURS", "24"))
+
+    # Hunter.io Email Verification Configuration
+    HUNTER_API_KEY = os.getenv("HUNTER_API_KEY", "")
+
     # Application Configuration
     DEBUG = os.getenv("DEBUG", "True").lower() == "true"
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

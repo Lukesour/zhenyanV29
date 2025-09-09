@@ -1,4 +1,5 @@
 import axios from 'axios';
+import authService from './authService';
 
 // API基础配置
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -15,6 +16,13 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     console.log('API Request:', config.method?.toUpperCase(), config.url);
+
+    // 添加认证头
+    const token = authService.getAccessToken();
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
     return config;
   },
   (error) => {
@@ -30,7 +38,14 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     console.error('API Error:', error.response?.status, error.response?.data);
-    
+
+    // 处理401未授权错误
+    if (error.response?.status === 401) {
+      // 清除认证状态并重定向到登录
+      authService.clearAuthState();
+      // 可以在这里触发重新登录的逻辑
+    }
+
     // 标准化错误信息（后端已统一为标准化错误对象）
     if (error.response) {
       const { data } = error.response;

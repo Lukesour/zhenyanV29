@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简单退出登录测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #c82333;
+        }
+        .success {
+            background-color: #28a745;
+        }
+        .success:hover {
+            background-color: #218838;
+        }
+        #log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>简单退出登录测试</h1>
+    
+    <div class="status">
+        <h3>当前状态</h3>
+        <p>Token: <span id="tokenStatus">检查中...</span></p>
+        <p>用户信息: <span id="userStatus">检查中...</span></p>
+    </div>
+
+    <div>
+        <button onclick="simulateLogin()" class="success">模拟登录</button>
+        <button onclick="testLogoutAPI()">测试退出登录API</button>
+        <button onclick="testCompleteLogout()">完整退出登录测试</button>
+        <button onclick="clearAll()">清除所有</button>
+    </div>
+
+    <div id="log"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.style.color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'black';
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus() {
+            const token = localStorage.getItem('access_token');
+            const userInfo = localStorage.getItem('user_info');
+            
+            document.getElementById('tokenStatus').textContent = token ? '存在' : '不存在';
+            document.getElementById('userStatus').textContent = userInfo ? '存在' : '不存在';
+            
+            document.getElementById('tokenStatus').style.color = token ? 'green' : 'red';
+            document.getElementById('userStatus').style.color = userInfo ? 'green' : 'red';
+        }
+
+        function simulateLogin() {
+            log('开始模拟登录...');
+            
+            const mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJleHAiOjE3MzE0MjM2MDAsImlhdCI6MTczMTQyMDAwMH0.mock_signature';
+            const mockUserInfo = {
+                id: 1,
+                phone: '13800138000',
+                email: 'test@example.com',
+                status: 'active',
+                remaining_analyses: 3,
+                total_analyses_used: 0,
+                invitation_code: 'TEST123',
+                invited_count: 0
+            };
+
+            localStorage.setItem('access_token', mockToken);
+            localStorage.setItem('user_info', JSON.stringify(mockUserInfo));
+            
+            log('模拟登录完成', 'success');
+            updateStatus();
+        }
+
+        async function testLogoutAPI() {
+            log('开始测试退出登录API...');
+            
+            try {
+                const token = localStorage.getItem('access_token');
+                const headers = {
+                    'Content-Type': 'application/json',
+                };
+                
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                    log('使用token调用API');
+                } else {
+                    log('无token调用API');
+                }
+
+                const response = await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    headers: headers,
+                });
+
+                const data = await response.json();
+                log(`API响应状态: ${response.status}`);
+                log(`API响应数据: ${JSON.stringify(data)}`);
+
+                if (response.ok && data.success) {
+                    log('退出登录API调用成功', 'success');
+                    return true;
+                } else {
+                    log('退出登录API调用失败', 'error');
+                    return false;
+                }
+                
+            } catch (error) {
+                log(`退出登录API测试失败: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function testCompleteLogout() {
+            log('开始完整退出登录测试...');
+            
+            try {
+                // 确保有登录状态
+                const token = localStorage.getItem('access_token');
+                if (!token) {
+                    log('没有登录状态，先模拟登录');
+                    simulateLogin();
+                }
+                
+                // 调用退出登录API
+                log('步骤1: 调用后端退出登录API...');
+                const apiSuccess = await testLogoutAPI();
+                
+                if (apiSuccess) {
+                    // 清除本地存储
+                    log('步骤2: 清除本地存储...');
+                    localStorage.removeItem('access_token');
+                    localStorage.removeItem('user_info');
+                    
+                    // 验证清除结果
+                    log('步骤3: 验证清除结果...');
+                    const tokenAfter = localStorage.getItem('access_token');
+                    const userAfter = localStorage.getItem('user_info');
+                    
+                    if (!tokenAfter && !userAfter) {
+                        log('✅ 完整退出登录测试成功！', 'success');
+                        updateStatus();
+                    } else {
+                        log('❌ 本地存储清除失败', 'error');
+                    }
+                } else {
+                    log('❌ 后端API调用失败', 'error');
+                }
+                
+            } catch (error) {
+                log(`完整退出登录测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        function clearAll() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('user_info');
+            log('所有数据已清除');
+            updateStatus();
+        }
+
+        // 页面加载时更新状态
+        window.onload = function() {
+            log('页面加载完成');
+            updateStatus();
+            
+            // 添加一些调试信息
+            log('当前页面URL: ' + window.location.href);
+            log('localStorage支持: ' + (typeof Storage !== "undefined" ? '是' : '否'));
+        };
+
+        // 监听localStorage变化
+        window.addEventListener('storage', function(e) {
+            log(`localStorage变化: ${e.key} = ${e.newValue}`);
+            updateStatus();
+        });
+    </script>
+</body>
+</html>

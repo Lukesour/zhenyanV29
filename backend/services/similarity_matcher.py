@@ -300,11 +300,10 @@ class SimilarityMatcher:
             # Experience similarity
             exp_sim = self._calculate_experience_similarity(user_background, idx)
             
-            # 调整权重分配，更加平衡和严格
             weights = {
-                'major': 0.3,       # 专业匹配最重要
-                'gpa': 0.3,        # 学术表现同样重要
-                'tier': 0.3,       # 学校层级重要但不能压倒一切
+                'major': 0.25,      # 专业相关性
+                'gpa': 0.25,       # 学术表现
+                'tier': 0.4,       # 学校声誉 (最高权重)
                 'language': 0.05,  # 语言能力
                 'experience': 0.05  # 经历背景
             }
