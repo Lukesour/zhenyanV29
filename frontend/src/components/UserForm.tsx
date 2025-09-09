@@ -18,6 +18,7 @@ import { PlusOutlined, MinusCircleOutlined, SendOutlined } from '@ant-design/ico
 import { UserBackground } from '../services/api';
 import dataLoaderService from '../services/DataLoaderService';
 import errorHandler from '../services/ErrorHandler';
+import authService from '../services/authService';
 
 
 const { Option } = Select;
@@ -53,7 +54,7 @@ const UserForm: React.FC<UserFormProps> = ({ onSubmit, loading = false }) => {
       try {
         setDataLoading(true);
         setDataError(null);
-        
+
         // 并行加载所有数据
         const [universitiesData, majorsData, countriesData, targetMajorsData] = await Promise.all([
           dataLoaderService.loadUniversities(),
@@ -66,7 +67,7 @@ const UserForm: React.FC<UserFormProps> = ({ onSubmit, loading = false }) => {
         setMajors(majorsData);
         setCountries(countriesData);
         setTargetMajors(targetMajorsData);
-        
+
 
       } catch (error) {
         const { userMessage } = errorHandler.buildUserFacingError(error, {
@@ -83,6 +84,65 @@ const UserForm: React.FC<UserFormProps> = ({ onSubmit, loading = false }) => {
 
     loadData();
   }, []);
+
+  // 监听用户认证状态变化，自动填入个人信息
+  useEffect(() => {
+    const authState = authService.getAuthState();
+    if (authState.isAuthenticated && authState.user?.profile_data) {
+      const profileData = authState.user.profile_data;
+
+      // 自动填入表单数据
+      const formValues: any = {};
+
+      // 学术背景
+      if (profileData.undergraduate_university) formValues.undergraduate_university = profileData.undergraduate_university;
+      if (profileData.undergraduate_major) formValues.undergraduate_major = profileData.undergraduate_major;
+      if (profileData.gpa) formValues.gpa = profileData.gpa;
+      if (profileData.gpa_scale) formValues.gpa_scale = profileData.gpa_scale;
+      if (profileData.graduation_year) formValues.graduation_year = profileData.graduation_year;
+
+      // 语言成绩
+      if (profileData.language_test_type) {
+        formValues.language_test_type = profileData.language_test_type;
+        setHasLanguageScore(true);
+        if (profileData.language_total_score) formValues.language_total_score = profileData.language_total_score;
+        if (profileData.language_reading) formValues.language_reading = profileData.language_reading;
+        if (profileData.language_listening) formValues.language_listening = profileData.language_listening;
+        if (profileData.language_speaking) formValues.language_speaking = profileData.language_speaking;
+        if (profileData.language_writing) formValues.language_writing = profileData.language_writing;
+      }
+
+      // GRE成绩
+      if (profileData.gre_total) {
+        setHasGRE(true);
+        formValues.gre_total = profileData.gre_total;
+        if (profileData.gre_verbal) formValues.gre_verbal = profileData.gre_verbal;
+        if (profileData.gre_quantitative) formValues.gre_quantitative = profileData.gre_quantitative;
+        if (profileData.gre_writing) formValues.gre_writing = profileData.gre_writing;
+      }
+
+      // GMAT成绩
+      if (profileData.gmat_total) {
+        setHasGMAT(true);
+        formValues.gmat_total = profileData.gmat_total;
+      }
+
+      // 目标信息
+      if (profileData.target_countries) formValues.target_countries = profileData.target_countries;
+      if (profileData.target_majors) formValues.target_majors = profileData.target_majors;
+      if (profileData.target_degree_type) formValues.target_degree_type = profileData.target_degree_type;
+
+      // 经历信息
+      if (profileData.research_experiences) formValues.research_experiences = profileData.research_experiences;
+      if (profileData.internship_experiences) formValues.internship_experiences = profileData.internship_experiences;
+      if (profileData.other_experiences) formValues.other_experiences = profileData.other_experiences;
+
+      // 设置表单值
+      form.setFieldsValue(formValues);
+
+      message.success('已自动填入您的个人信息');
+    }
+  }, [form]);
 
   // 当可选分数开关变化时，触发相关字段的重新校验
   useEffect(() => {

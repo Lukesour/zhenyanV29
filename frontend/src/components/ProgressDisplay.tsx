@@ -34,8 +34,10 @@ const ProgressDisplay: React.FC<ProgressDisplayProps> = ({
   const [pollingError, setPollingError] = useState<string | null>(null);
 
   const handleStart = useCallback(async () => {
+    console.log('ProgressDisplay handleStart called with userBackground:', userBackground);
     if (!userBackground) {
       console.error('用户背景数据缺失');
+      onError?.('用户背景数据缺失');
       return;
     }
 
@@ -190,6 +192,12 @@ const ProgressDisplay: React.FC<ProgressDisplayProps> = ({
             <Text type="secondary">
               {currentTask?.estimated_time || progressState.estimatedTime || '预计需要 5-10 分钟'}
             </Text>
+            <div>
+              <Text type="secondary">因服务器原因，无法正常加载进度条，但已经开始分析</Text>
+            </div>
+            <div>
+              <Text type="secondary">请不要退出当期页面，可以不用停留在此页面，只需耐心等待5～10 分钟，会将分析结果自动上传</Text>
+            </div>
           </div>
 
           {/* 显示任务状态信息 */}

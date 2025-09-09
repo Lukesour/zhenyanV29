@@ -178,7 +178,7 @@ class GeminiService:
         
         # Prepare similar cases data - 减少数据量以提高API响应速度
         cases_data = []
-        for case in similar_cases[:20]:  # 减少到10个最相似案例
+        for case in similar_cases[:10]:  # 减少到10个最相似案例
             case_info = case.get('case_data', {})
             cases_data.append({
                 "case_id": str(case_info.get('id', '')),

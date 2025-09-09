@@ -82,18 +82,29 @@ class SimilarityMatcher:
         logger.info(f"Loaded {len(self.cases_df)} cases for similarity matching")
     
     def _calculate_gpa_similarity(self, user_gpa: float, case_gpa: float) -> float:
-        """Calculate GPA similarity score (0-1)"""
+        """Calculate GPA similarity score (0-1) with stricter penalties for large gaps"""
         if user_gpa == 0 or case_gpa == 0:
             return 0.5  # Neutral score if either GPA is missing
-        
-        # Normalize the difference to 0-1 scale
-        max_diff = 4.0  # Maximum possible GPA difference
+
+        # Calculate the absolute difference
         diff = abs(user_gpa - case_gpa)
-        similarity = max(0, 1 - (diff / max_diff))
-        return similarity
+
+        # 更严格的GPA相似度计算
+        if diff <= 0.2:  # 差距很小
+            return 1.0
+        elif diff <= 0.5:  # 小差距
+            return 0.8
+        elif diff <= 1.0:  # 中等差距
+            return 0.6
+        elif diff <= 1.5:  # 较大差距
+            return 0.3
+        elif diff <= 2.0:  # 很大差距
+            return 0.1
+        else:  # 巨大差距
+            return 0.02
     
     def _calculate_university_tier_similarity(self, user_tier: str, case_tier: str) -> float:
-        """Calculate university tier similarity score (0-1) using new tier system"""
+        """Calculate university tier similarity score (0-1) with much stricter tier penalties"""
         # 新的层级体系
         tier_hierarchy = {
             'Tier 0': 5,
@@ -102,24 +113,31 @@ class SimilarityMatcher:
             'Tier 3': 2,
             'Tier 4': 1
         }
-        
 
-        
         user_level = tier_hierarchy.get(user_tier, 1)
         case_level = tier_hierarchy.get(case_tier, 1)
-        
+
         # Same tier gets full score
         if user_level == case_level:
             return 1.0
-        
-        # Adjacent tiers get partial score
+
+        # 极其严格的层级相似度计算
         diff = abs(user_level - case_level)
         if diff == 1:
-            return 0.7
+            # 相邻层级：根据层级高低给不同分数
+            higher_level = max(user_level, case_level)
+            if higher_level >= 4:  # 涉及Tier 0-1
+                return 0.3  # 顶尖院校之间稍微宽松
+            elif higher_level >= 3:  # 涉及Tier 1-2
+                return 0.2
+            else:  # 涉及Tier 2-3-4
+                return 0.05  # 低层级院校差距惩罚更严厉
         elif diff == 2:
-            return 0.4
+            # 间隔1层：严厉惩罚
+            return 0.01
         else:
-            return 0.1
+            # 间隔2层以上：几乎完全不匹配
+            return 0.001
     
     def _calculate_major_similarity(self, user_major_category: str, case_major_category: str) -> float:
         """Calculate major category similarity score (0-1)"""
@@ -225,15 +243,43 @@ class SimilarityMatcher:
         
         # Calculate similarity scores for each case
         similarities = []
-        
+
         # Determine user's university tier and major category
         user_tier = self._get_user_university_tier(user_background.undergraduate_university)
         user_major_category = self._get_user_major_category(user_background.undergraduate_major)
-        
+
         # Convert user GPA to 4.0 scale
         user_gpa_4_scale = self._convert_gpa_to_4_scale(
             user_background.gpa, user_background.gpa_scale
         )
+
+        # 添加预筛选：过滤掉层级差距过大的案例
+        tier_hierarchy = {
+            'Tier 0': 5, 'Tier 1': 4, 'Tier 2': 3, 'Tier 3': 2, 'Tier 4': 1
+        }
+        user_level = tier_hierarchy.get(user_tier, 1)
+
+        # 进一步过滤：只保留层级差距不超过2的案例
+        def is_tier_acceptable(case_tier):
+            case_level = tier_hierarchy.get(case_tier, 1)
+            return abs(user_level - case_level) <= 2
+
+        filtered_df = filtered_df[
+            filtered_df['undergraduate_university_tier'].apply(is_tier_acceptable)
+        ]
+
+        if filtered_df.empty:
+            logger.warning("No cases match the tier filtering criteria, relaxing constraints")
+            # 如果过滤太严格，放宽到层级差距不超过3
+            filtered_df = self.cases_df.copy()
+            if user_background.target_countries:
+                filtered_df = filtered_df[
+                    filtered_df['admitted_country'].isin(user_background.target_countries)
+                ]
+            if user_background.target_degree_type:
+                filtered_df = filtered_df[
+                    filtered_df['admitted_degree_type'] == user_background.target_degree_type
+                ]
         
         for idx, case in filtered_df.iterrows():
             # Calculate individual similarity components
@@ -254,13 +300,12 @@ class SimilarityMatcher:
             # Experience similarity
             exp_sim = self._calculate_experience_similarity(user_background, idx)
             
-            # Weighted total similarity
             weights = {
-                'major': 0.25,      # Highest weight for major relevance
-                'gpa': 0.25,       # Academic performance
-                'tier': 0.4,       # University prestige
-                'language': 0.05,  # Language ability
-                'experience': 0.05  # Experience background
+                'major': 0.25,      # 专业相关性
+                'gpa': 0.25,       # 学术表现
+                'tier': 0.4,       # 学校声誉 (最高权重)
+                'language': 0.05,  # 语言能力
+                'experience': 0.05  # 经历背景
             }
             
             total_similarity = (
@@ -271,22 +316,74 @@ class SimilarityMatcher:
                 weights['experience'] * exp_sim
             )
             
-            similarities.append({
-                'case_id': case['id'],
-                'original_id': case['original_id'],
-                'similarity_score': total_similarity,
-                'component_scores': {
-                    'major': major_sim,
-                    'gpa': gpa_sim,
-                    'tier': tier_sim,
-                    'language': lang_sim,
-                    'experience': exp_sim
-                },
-                'case_data': case.to_dict()
-            })
-        
+            # 只保留相似度超过最低阈值的案例
+            min_similarity_threshold = 0.3  # 最低相似度阈值
+            if total_similarity >= min_similarity_threshold:
+                similarities.append({
+                    'case_id': case['id'],
+                    'original_id': case['original_id'],
+                    'similarity_score': total_similarity,
+                    'component_scores': {
+                        'major': major_sim,
+                        'gpa': gpa_sim,
+                        'tier': tier_sim,
+                        'language': lang_sim,
+                        'experience': exp_sim
+                    },
+                    'case_data': case.to_dict()
+                })
+
         # Sort by similarity score and return top N
         similarities.sort(key=lambda x: x['similarity_score'], reverse=True)
+
+        # 如果符合条件的案例太少，适当降低阈值
+        if len(similarities) < 10:
+            logger.info(f"Only {len(similarities)} cases meet the strict criteria, relaxing threshold")
+            similarities = []
+            min_similarity_threshold = 0.2  # 降低阈值
+
+            for idx, case in filtered_df.iterrows():
+                # 重新计算相似度（代码重复，但为了清晰）
+                gpa_sim = self._calculate_gpa_similarity(user_gpa_4_scale, case['gpa_4_scale'])
+                tier_sim = self._calculate_university_tier_similarity(user_tier, case['undergraduate_university_tier'])
+                major_sim = self._calculate_major_similarity(user_major_category, case['undergraduate_major_category'])
+
+                lang_sim = 0.5
+                if user_background.language_total_score and case['language_total_score']:
+                    lang_sim = self._calculate_language_similarity(
+                        user_background.language_total_score,
+                        case['language_total_score'],
+                        user_background.language_test_type or '',
+                        case['language_test_type']
+                    )
+
+                exp_sim = self._calculate_experience_similarity(user_background, idx)
+
+                total_similarity = (
+                    weights['major'] * major_sim +
+                    weights['gpa'] * gpa_sim +
+                    weights['tier'] * tier_sim +
+                    weights['language'] * lang_sim +
+                    weights['experience'] * exp_sim
+                )
+
+                if total_similarity >= min_similarity_threshold:
+                    similarities.append({
+                        'case_id': case['id'],
+                        'original_id': case['original_id'],
+                        'similarity_score': total_similarity,
+                        'component_scores': {
+                            'major': major_sim,
+                            'gpa': gpa_sim,
+                            'tier': tier_sim,
+                            'language': lang_sim,
+                            'experience': exp_sim
+                        },
+                        'case_data': case.to_dict()
+                    })
+
+            similarities.sort(key=lambda x: x['similarity_score'], reverse=True)
+
         return similarities[:top_n]
     
     def _get_user_university_tier(self, university_name: str) -> str:

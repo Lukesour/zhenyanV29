@@ -93,8 +93,11 @@ const VerificationForm: React.FC<VerificationFormProps> = ({
                   返回修改
                 </Button> */}
                 <Title level={3} className="verification-title">
-                  为避免滥用，请关注公众号，免费、自动获取验证码
+                  为避免滥用，以及不良中介未经允许利用本网站进行牟利
                 </Title>
+                <Title level={3} className="verification-title">
+                  请关注公众号，免费、自动获取验证码
+                </Title>                
                 <Text type="secondary" className="verification-subtitle">
                   请输入验证码以开始分析
                 </Text>
