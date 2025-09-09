@@ -376,6 +376,154 @@ class UserService:
         except Exception as e:
             logger.error(f"用户注册失败: {str(e)}")
             raise Exception(str(e))
+
+    async def _create_user_without_code_verification(self, phone: str, email: str, invitation_code: Optional[str] = None, profile_data: Optional[UserProfileData] = None) -> UserInfo:
+        """创建用户（不验证验证码，用于登录时自动创建账户）"""
+        try:
+            if not self.client:
+                raise Exception("数据库连接未初始化")
+
+            # 简单的邮箱格式验证
+            import re
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not re.match(email_pattern, email):
+                raise Exception("邮箱格式不正确，请输入有效的邮箱地址")
+
+            logger.info(f"自动创建用户邮箱格式验证通过: {email}")
+
+            # 检查手机号是否已注册（如果表存在）
+            try:
+                existing_user = self.client.table('users').select('id').eq('phone', phone).execute()
+                if existing_user.data:
+                    raise Exception("该手机号已注册")
+            except Exception as db_error:
+                logger.warning(f"用户表检查失败，继续执行: {str(db_error)}")
+
+            # 检查邮箱是否已注册（如果表存在）
+            try:
+                existing_email = self.client.table('users').select('id').eq('email', email).execute()
+                if existing_email.data:
+                    raise Exception("该邮箱已注册，请使用其他邮箱")
+            except Exception as db_error:
+                logger.warning(f"邮箱表检查失败，继续执行: {str(db_error)}")
+
+            # 生成用户邀请码
+            user_invitation_code = self.generate_invitation_code()
+
+            # 处理邀请码逻辑
+            invited_by_code = None
+            if invitation_code:
+                try:
+                    invitation_result = self.client.table('invitation_codes')\
+                        .select('*')\
+                        .eq('code', invitation_code)\
+                        .eq('status', 'active')\
+                        .execute()
+
+                    if invitation_result.data:
+                        invitation_record = invitation_result.data[0]
+                        if invitation_record['used_count'] < invitation_record['max_uses']:
+                            invited_by_code = invitation_code
+                            logger.info(f"有效邀请码: {invitation_code}")
+                        else:
+                            logger.warning(f"邀请码已达到使用上限: {invitation_code}")
+                    else:
+                        logger.warning(f"无效邀请码: {invitation_code}")
+                except Exception as invitation_error:
+                    logger.warning(f"邀请码验证失败: {str(invitation_error)}")
+
+            # 创建用户数据
+            user_data = {
+                'phone': phone,
+                'email': email,
+                'status': 'active',
+                'remaining_analyses': 3,
+                'total_analyses_used': 0,
+                'invitation_code': user_invitation_code,
+                'invited_by_code': invited_by_code,
+                'invited_count': 0,
+                'email_verified': True,
+                'created_at': datetime.utcnow().isoformat(),
+                'last_login_at': datetime.utcnow().isoformat()
+            }
+
+            new_user = None
+            try:
+                user_result = self.client.table('users').insert(user_data).execute()
+
+                if not user_result.data:
+                    raise Exception("用户创建失败")
+
+                new_user = user_result.data[0]
+
+                # 创建用户的邀请码记录
+                invitation_data = {
+                    'code': user_invitation_code,
+                    'user_id': new_user['id'],
+                    'status': 'active',
+                    'used_count': 0,
+                    'max_uses': 999
+                }
+
+                self.client.table('invitation_codes').insert(invitation_data).execute()
+
+                # 如果使用了邀请码，更新邀请者信息
+                if invited_by_code:
+                    await self._process_invitation_usage(invited_by_code, new_user['id'])
+
+                logger.info(f"自动创建用户成功（数据库模式）: {email}")
+
+            except Exception as db_error:
+                logger.warning(f"数据库用户创建失败，使用内存模式: {str(db_error)}")
+                # 创建内存模式的用户信息
+                import random
+                new_user = {
+                    'id': random.randint(100000, 999999),  # 生成6位随机整数ID
+                    'phone': phone,
+                    'email': email,
+                    'status': 'active',
+                    'remaining_analyses': 3,
+                    'total_analyses_used': 0,
+                    'invitation_code': user_invitation_code,
+                    'invited_by_code': invited_by_code,
+                    'invited_count': 0,
+                    'email_verified': True,
+                    'last_login_at': datetime.utcnow().isoformat(),
+                    'created_at': datetime.utcnow().isoformat()
+                }
+                logger.info(f"自动创建用户成功（内存模式）: {email}")
+
+            # 发送欢迎邮件
+            self.email_service.send_welcome_email(email, phone, 3)
+
+            # 保存用户个人信息（如果提供了）
+            saved_profile_data = None
+            if profile_data:
+                profile_saved = await self.save_user_profile(new_user['id'], profile_data)
+                if profile_saved:
+                    saved_profile_data = profile_data
+                    logger.info(f"用户 {new_user['id']} 个人信息已保存")
+                else:
+                    logger.warning(f"用户 {new_user['id']} 个人信息保存失败")
+
+            # 返回用户信息
+            return UserInfo(
+                id=new_user['id'],
+                phone=new_user['phone'],
+                email=new_user['email'],
+                status=UserStatus(new_user['status']),
+                remaining_analyses=new_user['remaining_analyses'],
+                total_analyses_used=new_user['total_analyses_used'],
+                invitation_code=new_user['invitation_code'],
+                invited_count=new_user['invited_count'],
+                created_at=datetime.fromisoformat(new_user['created_at'].replace('Z', '+00:00')),
+                last_login_at=datetime.fromisoformat(new_user['last_login_at'].replace('Z', '+00:00')) if new_user['last_login_at'] else None,
+                profile_data=saved_profile_data
+            )
+
+        except Exception as e:
+            logger.error(f"自动创建用户失败: {str(e)}")
+            raise Exception(str(e))
     
     async def _process_invitation_usage(self, invitation_code: str, new_user_id: int):
         """处理邀请码使用"""
@@ -424,7 +572,7 @@ class UserService:
             # 不抛出异常，避免影响用户注册
 
     async def login_user(self, phone: str, email: str, verification_code: str) -> Dict[str, Any]:
-        """用户登录"""
+        """用户登录 - 如果用户不存在则自动创建账户"""
         try:
             if not self.client:
                 raise Exception("数据库连接未初始化")
@@ -435,23 +583,64 @@ class UserService:
                 .eq('phone', phone)\
                 .execute()
 
+            user = None
+            is_new_user = False
+
             if not user_result.data:
-                raise Exception("用户不存在，请先注册")
+                # 用户不存在，自动创建账户
+                logger.info(f"用户不存在，自动创建账户: {phone}, {email}")
 
-            user = user_result.data[0]
+                # 验证邮箱验证码（创建账户前需要验证）
+                await self.verify_email_code(email, phone, verification_code)
 
-            # 检查用户状态
-            if user['status'] != 'active':
-                raise Exception("账户已被暂停，请联系客服")
+                # 调用注册逻辑创建用户（不再验证验证码，因为已经验证过了）
+                user_info = await self._create_user_without_code_verification(phone, email, None, None)
 
-            # 验证邮箱验证码（登录时也需要验证码）
-            await self.verify_email_code(email, phone, verification_code)
+                # 重新查询用户信息
+                user_result = self.client.table('users')\
+                    .select('*')\
+                    .eq('phone', phone)\
+                    .execute()
 
-            # 更新最后登录时间
-            self.client.table('users')\
-                .update({'last_login_at': datetime.utcnow().isoformat()})\
-                .eq('id', user['id'])\
-                .execute()
+                if user_result.data:
+                    user = user_result.data[0]
+                    is_new_user = True
+                    logger.info(f"自动创建账户成功: {phone}")
+                else:
+                    # 如果数据库模式失败，使用内存模式的用户信息
+                    user = {
+                        'id': user_info.id,
+                        'phone': user_info.phone,
+                        'email': user_info.email,
+                        'status': user_info.status.value,
+                        'remaining_analyses': user_info.remaining_analyses,
+                        'total_analyses_used': user_info.total_analyses_used,
+                        'invitation_code': user_info.invitation_code,
+                        'invited_count': user_info.invited_count,
+                        'created_at': user_info.created_at.isoformat(),
+                        'last_login_at': user_info.last_login_at.isoformat() if user_info.last_login_at else None
+                    }
+                    is_new_user = True
+                    logger.info(f"自动创建账户成功（内存模式）: {phone}")
+            else:
+                user = user_result.data[0]
+
+                # 检查用户状态
+                if user['status'] != 'active':
+                    raise Exception("账户已被暂停，请联系客服")
+
+                # 验证邮箱验证码（登录时也需要验证码）
+                await self.verify_email_code(email, phone, verification_code)
+
+            # 更新最后登录时间（仅对已存在的用户）
+            if not is_new_user:
+                try:
+                    self.client.table('users')\
+                        .update({'last_login_at': datetime.utcnow().isoformat()})\
+                        .eq('id', user['id'])\
+                        .execute()
+                except Exception as update_error:
+                    logger.warning(f"更新登录时间失败: {str(update_error)}")
 
             # 生成JWT令牌
             token_data = self.generate_jwt_token(user['id'])
@@ -474,10 +663,17 @@ class UserService:
                 profile_data=profile_data
             )
 
-            return {
+            # 如果是新用户，在响应中添加标识
+            result = {
                 **token_data,
                 'user_info': user_info
             }
+
+            if is_new_user:
+                result['is_new_user'] = True
+                logger.info(f"新用户登录成功: {phone}")
+
+            return result
 
         except Exception as e:
             logger.error(f"用户登录失败: {str(e)}")

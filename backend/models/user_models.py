@@ -121,6 +121,7 @@ class LoginResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     user_info: UserInfo
+    is_new_user: Optional[bool] = False  # 标识是否为新创建的用户
 
 class InvitationCodeInfo(BaseModel):
     """邀请码信息"""

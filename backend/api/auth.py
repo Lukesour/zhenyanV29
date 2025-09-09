@@ -177,7 +177,8 @@ async def login_user(
             access_token=login_data['access_token'],
             token_type=login_data['token_type'],
             expires_in=login_data['expires_in'],
-            user_info=login_data['user_info']
+            user_info=login_data['user_info'],
+            is_new_user=login_data.get('is_new_user', False)
         )
         
     except Exception as e:

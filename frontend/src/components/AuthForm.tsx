@@ -174,7 +174,13 @@ const AuthForm: React.FC<AuthFormProps> = ({
 
       if (response.ok) {
         const data: LoginResponse = await response.json();
-        message.success('登录成功！');
+
+        // 检查是否是新创建的用户
+        if ((data as any).is_new_user) {
+          message.success('欢迎！已为您自动创建账户并登录成功！', 6);
+        } else {
+          message.success('登录成功！');
+        }
 
         // 使用authService设置认证状态，这会同时更新localStorage和内部状态
         authService.setAuthState(data);
@@ -185,7 +191,12 @@ const AuthForm: React.FC<AuthFormProps> = ({
         }, 100);
       } else {
         const errorData = await response.json();
-        message.error(errorData.detail || '登录失败');
+        console.log('登录错误响应:', errorData); // 添加调试日志
+
+        // 获取错误信息，支持多种响应格式
+        const errorMessage = errorData.detail || errorData.message || '登录失败';
+
+        message.error(errorMessage);
       }
     } catch (error) {
       message.error('网络错误，请稍后重试');
