@@ -24,7 +24,7 @@ class EmailService:
         self.sender_name = settings.GMAIL_SENDER_NAME or "箴言留学"
 
         # 邮件发送方式：'smtp' 或 'api'
-        self.send_method = 'smtp'  # 优先尝试SMTP方式
+        self.send_method = getattr(settings, 'EMAIL_SEND_METHOD', 'smtp')
 
         if not self.sender_email:
             raise ValueError("Gmail sender email is required")
@@ -300,26 +300,18 @@ class EmailService:
         return self._send_email_via_api(to_email, subject, html_content, text_content)
 
     def _send_email_via_api(self, to_email: str, subject: str, html_content: str, text_content: str) -> bool:
-        """通过第三方API发送邮件"""
+        """通过Resend API发送邮件"""
         try:
-            # 方案1: 尝试使用Resend API (免费额度)
+            # 使用Resend API发送邮件
             if self._send_via_resend(to_email, subject, html_content, text_content):
                 return True
 
-            # 方案2: 尝试使用SendGrid API (免费额度)
-            if self._send_via_sendgrid(to_email, subject, html_content, text_content):
-                return True
-
-            # 方案3: 尝试使用Mailgun API (免费额度)
-            if self._send_via_mailgun(to_email, subject, html_content, text_content):
-                return True
-
-            # 所有API都失败，回退到控制台模式
-            logger.warning("所有邮件API都失败，回退到控制台模式")
+            # Resend API失败，回退到控制台模式
+            logger.warning("Resend API发送失败，回退到控制台模式")
             return self._send_via_console(to_email, subject, html_content, text_content)
 
         except Exception as e:
-            logger.error(f"API邮件发送异常: {str(e)}")
+            logger.error(f"Resend API发送异常: {str(e)}")
             return self._send_via_console(to_email, subject, html_content, text_content)
 
     def _send_via_resend(self, to_email: str, subject: str, html_content: str, text_content: str) -> bool:
@@ -328,9 +320,19 @@ class EmailService:
             # 如果配置了Resend API密钥
             resend_api_key = getattr(settings, 'RESEND_API_KEY', None)
             if not resend_api_key:
+                logger.warning("Resend API密钥未配置")
                 return False
 
             import requests
+
+            # 使用自定义域名（如果已配置）或Resend默认域名
+            custom_domain = getattr(settings, 'RESEND_FROM_DOMAIN', None)
+            if custom_domain:
+                from_email = f'{self.sender_name} <noreply@{custom_domain}>'
+            else:
+                from_email = f'{self.sender_name} <noreply@resend.dev>'
+
+            logger.info(f"尝试通过Resend API发送邮件: {to_email}")
 
             response = requests.post(
                 'https://api.resend.com/emails',
@@ -339,24 +341,26 @@ class EmailService:
                     'Content-Type': 'application/json'
                 },
                 json={
-                    'from': f'{self.sender_name} <noreply@yourdomain.com>',
+                    'from': from_email,
                     'to': [to_email],
                     'subject': subject,
                     'html': html_content,
                     'text': text_content
                 },
-                timeout=10
+                timeout=15
             )
 
             if response.status_code == 200:
-                logger.info(f"✅ Resend API邮件发送成功: {to_email}")
+                result = response.json()
+                logger.info(f"✅ Resend API邮件发送成功: {to_email}, ID: {result.get('id', 'N/A')}")
                 return True
             else:
-                logger.warning(f"❌ Resend API发送失败: {response.status_code}")
+                error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else response.text
+                logger.error(f"❌ Resend API发送失败: {response.status_code}, 错误: {error_data}")
                 return False
 
         except Exception as e:
-            logger.warning(f"Resend API异常: {str(e)}")
+            logger.error(f"Resend API异常: {str(e)}")
             return False
 
     def _send_via_sendgrid(self, to_email: str, subject: str, html_content: str, text_content: str) -> bool:

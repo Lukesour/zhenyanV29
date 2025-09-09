@@ -34,6 +34,14 @@ class Settings:
     # Hunter.io Email Verification Configuration
     HUNTER_API_KEY = os.getenv("HUNTER_API_KEY", "")
 
+    # Third-party Email API Configuration
+    RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+    RESEND_FROM_DOMAIN = os.getenv("RESEND_FROM_DOMAIN", "")
+    SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "")
+    MAILGUN_API_KEY = os.getenv("MAILGUN_API_KEY", "")
+    MAILGUN_DOMAIN = os.getenv("MAILGUN_DOMAIN", "")
+    EMAIL_SEND_METHOD = os.getenv("EMAIL_SEND_METHOD", "smtp")
+
     # Application Configuration
     DEBUG = os.getenv("DEBUG", "True").lower() == "true"
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

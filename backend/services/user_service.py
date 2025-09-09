@@ -484,13 +484,40 @@ class UserService:
             raise Exception(str(e))
 
     def get_cached_verification_code(self, email: str, phone: str) -> Optional[str]:
-        """获取内存缓存中的验证码（仅用于调试）"""
-        cache_key = f"{email}:{phone}"
-        if cache_key in verification_code_cache:
-            cached_data = verification_code_cache[cache_key]
-            if not cached_data['used'] and datetime.utcnow() <= cached_data['expires_at']:
-                return cached_data['code']
-        return None
+        """获取验证码（从数据库或内存缓存，仅用于调试）"""
+        try:
+            # 首先尝试从数据库获取
+            if self.client:
+                try:
+                    result = self.client.table('email_verification_codes')\
+                        .select('code, expires_at, used')\
+                        .eq('email', email)\
+                        .eq('phone', phone)\
+                        .eq('used', False)\
+                        .order('created_at', desc=True)\
+                        .limit(1)\
+                        .execute()
+
+                    if result.data:
+                        verification_record = result.data[0]
+                        expires_at = datetime.fromisoformat(verification_record['expires_at'].replace('Z', '+00:00'))
+                        if datetime.utcnow().replace(tzinfo=expires_at.tzinfo) <= expires_at:
+                            return verification_record['code']
+                except Exception as db_error:
+                    logger.warning(f"数据库验证码查询失败: {str(db_error)}")
+
+            # 回退到内存缓存
+            cache_key = f"{email}:{phone}"
+            if cache_key in verification_code_cache:
+                cached_data = verification_code_cache[cache_key]
+                if not cached_data['used'] and datetime.utcnow() <= cached_data['expires_at']:
+                    return cached_data['code']
+
+            return None
+
+        except Exception as e:
+            logger.error(f"获取验证码失败: {str(e)}")
+            return None
 
     async def get_user_info(self, user_id: int) -> Optional[UserInfo]:
         """获取用户信息"""
