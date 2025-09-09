@@ -8,6 +8,7 @@ import {
   CopyOutlined,
   ShareAltOutlined
 } from '@ant-design/icons';
+import { getApiBaseUrl } from '../config';
 import authService, { AuthState } from '../services/authService';
 import './UserDashboard.css';
 
@@ -194,7 +195,7 @@ const UserDashboard: React.FC<UserDashboardProps> = () => {
                 console.log('退出登录按钮被点击');
                 try {
                   // 直接调用后端API
-                  const response = await fetch('/api/auth/logout', {
+                  const response = await fetch(`${getApiBaseUrl()}/api/auth/logout`, {
                     method: 'POST',
                     headers: {
                       'Authorization': `Bearer ${localStorage.getItem('access_token')}`,

@@ -1,9 +1,9 @@
 import axios from 'axios';
 import authService from './authService';
-import { API_BASE_URL } from '../config';
+import { getApiBaseUrl } from '../config';
 
 const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: getApiBaseUrl(),
   timeout: 30000, // 30秒超时，因为现在只是轮询状态
   headers: {
     'Content-Type': 'application/json',

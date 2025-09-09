@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Input, Button, Space, message, Spin } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
-import { API_BASE_URL } from '../config';
+import { getApiBaseUrl } from '../config';
 
 interface CaptchaData {
   captcha_id: string;
@@ -23,7 +23,7 @@ const CaptchaInput: React.FC<CaptchaInputProps> = ({ onCaptchaChange, disabled =
   const fetchCaptcha = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/auth/captcha`);
+      const response = await fetch(`${getApiBaseUrl()}/api/auth/captcha`);
 
       if (response.ok) {
         const data = await response.json();

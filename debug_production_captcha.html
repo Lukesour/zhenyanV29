@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生产环境验证码调试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { border-color: #52c41a; background-color: #f6ffed; }
+        .error { border-color: #ff4d4f; background-color: #fff2f0; }
+        .loading { border-color: #1890ff; background-color: #e6f7ff; }
+        button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #40a9ff; }
+        button:disabled { background: #d9d9d9; cursor: not-allowed; }
+        .result {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .captcha-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1890ff;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f0f8ff;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .info {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 生产环境验证码调试工具</h1>
+        
+        <div class="info">
+            <strong>当前环境信息：</strong><br>
+            域名: <span id="hostname"></span><br>
+            协议: <span id="protocol"></span><br>
+            完整URL: <span id="fullUrl"></span><br>
+            预期API地址: <span id="expectedApi"></span>
+        </div>
+        
+        <div id="test1" class="test-section">
+            <h3>测试 1: 环境检测和API配置</h3>
+            <p>检测当前环境并验证API配置逻辑</p>
+            <button onclick="testEnvironmentDetection()">检测环境</button>
+            <div id="result1" class="result"></div>
+        </div>
+
+        <div id="test2" class="test-section">
+            <h3>测试 2: 直接API调用 (CORS测试)</h3>
+            <p>直接调用验证码API，检查CORS和网络连接</p>
+            <button onclick="testDirectApiCall()">测试API调用</button>
+            <div id="result2" class="result"></div>
+            <div id="captcha2" class="captcha-display" style="display:none;"></div>
+        </div>
+
+        <div id="test3" class="test-section">
+            <h3>测试 3: 模拟前端组件行为</h3>
+            <p>完全模拟CaptchaInput组件的行为</p>
+            <button onclick="simulateCaptchaComponent()">模拟组件</button>
+            <div id="result3" class="result"></div>
+            <div id="captcha3" class="captcha-display" style="display:none;"></div>
+        </div>
+
+        <div id="test4" class="test-section">
+            <h3>测试 4: 网络诊断</h3>
+            <p>详细的网络连接和响应诊断</p>
+            <button onclick="networkDiagnostics()">网络诊断</button>
+            <div id="result4" class="result"></div>
+        </div>
+
+        <div id="test5" class="test-section">
+            <h3>测试 5: 浏览器控制台日志</h3>
+            <p>捕获和显示浏览器控制台中的相关日志</p>
+            <button onclick="captureConsoleLogs()">开始日志捕获</button>
+            <button onclick="stopLogCapture()">停止捕获</button>
+            <div id="result5" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let originalConsoleLog = console.log;
+        let originalConsoleError = console.error;
+        let originalConsoleWarn = console.warn;
+        let logCapture = false;
+        let capturedLogs = [];
+
+        // 初始化页面信息
+        document.getElementById('hostname').textContent = window.location.hostname;
+        document.getElementById('protocol').textContent = window.location.protocol;
+        document.getElementById('fullUrl').textContent = window.location.href;
+        
+        // 复制前端的环境检测逻辑
+        function getApiBaseUrl() {
+            if (window.location.hostname === 'zhenyan.asia' || window.location.hostname === 'www.zhenyan.asia') {
+                return 'https://api.zhenyan.asia';
+            }
+            return process.env.REACT_APP_API_URL || 'http://localhost:8000';
+        }
+        
+        document.getElementById('expectedApi').textContent = getApiBaseUrl();
+
+        function updateTestResult(testId, status, message) {
+            const testDiv = document.getElementById(testId);
+            const resultDiv = document.getElementById(`result${testId.slice(-1)}`);
+            
+            testDiv.className = `test-section ${status}`;
+            resultDiv.textContent = message;
+            resultDiv.className = `result ${status}`;
+        }
+
+        function testEnvironmentDetection() {
+            updateTestResult('test1', 'loading', '正在检测环境...');
+            
+            const hostname = window.location.hostname;
+            const isProduction = hostname === 'zhenyan.asia' || hostname === 'www.zhenyan.asia';
+            const apiUrl = getApiBaseUrl();
+            
+            const result = `✅ 环境检测完成
+当前域名: ${hostname}
+是否生产环境: ${isProduction ? '是' : '否'}
+API基础URL: ${apiUrl}
+用户代理: ${navigator.userAgent}
+时间戳: ${new Date().toISOString()}`;
+            
+            updateTestResult('test1', 'success', result);
+        }
+
+        async function testDirectApiCall() {
+            updateTestResult('test2', 'loading', '正在测试API调用...');
+            
+            const apiUrl = getApiBaseUrl();
+            const endpoint = `${apiUrl}/api/auth/captcha`;
+            
+            try {
+                console.log('开始调用API:', endpoint);
+                
+                const response = await fetch(endpoint, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    mode: 'cors', // 明确指定CORS模式
+                });
+                
+                console.log('API响应状态:', response.status);
+                console.log('API响应头:', [...response.headers.entries()]);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('API响应数据:', data);
+                    
+                    // 显示验证码
+                    const captchaDiv = document.getElementById('captcha2');
+                    captchaDiv.innerHTML = `验证码: ${data.question}`;
+                    captchaDiv.style.display = 'block';
+                    
+                    const result = `✅ API调用成功!
+端点: ${endpoint}
+状态码: ${response.status}
+验证码ID: ${data.captcha_id}
+数学题: ${data.question}
+会话ID: ${data.session_id}
+响应时间: ${new Date().toISOString()}`;
+                    
+                    updateTestResult('test2', 'success', result);
+                } else {
+                    const errorText = await response.text();
+                    const result = `❌ API调用失败
+端点: ${endpoint}
+状态码: ${response.status}
+状态文本: ${response.statusText}
+响应内容: ${errorText}`;
+                    
+                    updateTestResult('test2', 'error', result);
+                }
+            } catch (error) {
+                console.error('API调用异常:', error);
+                
+                const result = `❌ API调用异常
+端点: ${endpoint}
+错误类型: ${error.name}
+错误消息: ${error.message}
+错误堆栈: ${error.stack}`;
+                
+                updateTestResult('test2', 'error', result);
+            }
+        }
+
+        async function simulateCaptchaComponent() {
+            updateTestResult('test3', 'loading', '正在模拟CaptchaInput组件...');
+            
+            // 完全模拟CaptchaInput组件的fetchCaptcha方法
+            try {
+                const apiUrl = getApiBaseUrl();
+                const response = await fetch(`${apiUrl}/api/auth/captcha`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const newCaptchaData = {
+                        captcha_id: data.captcha_id,
+                        question: data.question,
+                        session_id: data.session_id
+                    };
+                    
+                    // 显示验证码（模拟组件UI）
+                    const captchaDiv = document.getElementById('captcha3');
+                    captchaDiv.innerHTML = `
+                        <div style="margin-bottom: 8px;">
+                            <span style="font-weight: bold;">验证码：</span>
+                            <span style="margin-left: 8px; padding: 4px 8px; background-color: #f0f0f0; border-radius: 4px; font-family: monospace; font-size: 16px;">
+                                ${newCaptchaData.question}
+                            </span>
+                        </div>
+                    `;
+                    captchaDiv.style.display = 'block';
+                    
+                    const result = `✅ CaptchaInput组件模拟成功!
+这完全模拟了前端组件的行为
+验证码已在上方显示
+组件数据: ${JSON.stringify(newCaptchaData, null, 2)}`;
+                    
+                    updateTestResult('test3', 'success', result);
+                } else {
+                    const result = `❌ 组件模拟失败
+状态码: ${response.status}
+这意味着前端组件也会失败`;
+                    
+                    updateTestResult('test3', 'error', result);
+                }
+            } catch (error) {
+                const result = `❌ 组件模拟异常: ${error.message}
+这意味着前端组件也会遇到同样的错误`;
+                
+                updateTestResult('test3', 'error', result);
+            }
+        }
+
+        async function networkDiagnostics() {
+            updateTestResult('test4', 'loading', '正在进行网络诊断...');
+            
+            const apiUrl = getApiBaseUrl();
+            const endpoints = [
+                `${apiUrl}/health`,
+                `${apiUrl}/api/auth/health`,
+                `${apiUrl}/api/auth/captcha`
+            ];
+            
+            let diagnostics = [`网络诊断报告 - ${new Date().toISOString()}`];
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const start = performance.now();
+                    const response = await fetch(endpoint, { method: 'HEAD' });
+                    const duration = Math.round(performance.now() - start);
+                    
+                    diagnostics.push(`✅ ${endpoint}: ${response.status} (${duration}ms)`);
+                } catch (error) {
+                    diagnostics.push(`❌ ${endpoint}: ${error.message}`);
+                }
+            }
+            
+            // DNS解析测试
+            try {
+                const dnsStart = performance.now();
+                await fetch(`${apiUrl}/health`, { method: 'HEAD' });
+                const dnsTime = Math.round(performance.now() - dnsStart);
+                diagnostics.push(`DNS解析时间: ${dnsTime}ms`);
+            } catch (error) {
+                diagnostics.push(`DNS解析失败: ${error.message}`);
+            }
+            
+            updateTestResult('test4', 'success', diagnostics.join('\n'));
+        }
+
+        function captureConsoleLogs() {
+            logCapture = true;
+            capturedLogs = [];
+            
+            console.log = function(...args) {
+                if (logCapture) {
+                    capturedLogs.push(`[LOG] ${new Date().toISOString()}: ${args.join(' ')}`);
+                }
+                originalConsoleLog.apply(console, args);
+            };
+            
+            console.error = function(...args) {
+                if (logCapture) {
+                    capturedLogs.push(`[ERROR] ${new Date().toISOString()}: ${args.join(' ')}`);
+                }
+                originalConsoleError.apply(console, args);
+            };
+            
+            console.warn = function(...args) {
+                if (logCapture) {
+                    capturedLogs.push(`[WARN] ${new Date().toISOString()}: ${args.join(' ')}`);
+                }
+                originalConsoleWarn.apply(console, args);
+            };
+            
+            updateTestResult('test5', 'loading', '日志捕获已开始...\n现在可以尝试其他测试，日志将被记录');
+        }
+
+        function stopLogCapture() {
+            logCapture = false;
+            console.log = originalConsoleLog;
+            console.error = originalConsoleError;
+            console.warn = originalConsoleWarn;
+            
+            const result = capturedLogs.length > 0 
+                ? `捕获的日志 (${capturedLogs.length} 条):\n\n${capturedLogs.join('\n')}`
+                : '未捕获到任何日志';
+                
+            updateTestResult('test5', 'success', result);
+        }
+
+        // 页面加载时自动运行环境检测
+        window.addEventListener('load', () => {
+            testEnvironmentDetection();
+        });
+    </script>
+</body>
+</html>

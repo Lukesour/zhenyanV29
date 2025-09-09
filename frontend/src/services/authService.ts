@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../config';
+import { getApiBaseUrl } from '../config';
 
 interface UserProfileData {
   undergraduate_university?: string;
@@ -173,7 +173,7 @@ class AuthService {
   // 发送验证码
   public async sendVerificationCode(email: string, phone: string): Promise<boolean> {
     try {
-      const response = await fetch('/api/auth/send-verification-code', {
+      const response = await fetch(`${getApiBaseUrl()}/api/auth/send-verification-code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -196,7 +196,7 @@ class AuthService {
     invitationCode?: string
   ): Promise<{ success: boolean; message?: string }> {
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch(`${getApiBaseUrl()}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -229,7 +229,7 @@ class AuthService {
     verificationCode: string
   ): Promise<{ success: boolean; message?: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -262,7 +262,7 @@ class AuthService {
       // 如果有token，先调用后端退出登录API
       if (this.authState.token) {
         console.log('authService: 发现token，调用后端API'); // 调试日志
-        const response = await fetch('/api/auth/logout', {
+        const response = await fetch(`${getApiBaseUrl()}/api/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${this.authState.token}`,
@@ -296,7 +296,7 @@ class AuthService {
         return false;
       }
 
-      const response = await fetch('/api/auth/user-info', {
+      const response = await fetch(`${getApiBaseUrl()}/api/auth/user-info`, {
         headers: {
           'Authorization': `Bearer ${this.authState.token}`,
         },
@@ -325,7 +325,7 @@ class AuthService {
         return false;
       }
 
-      const response = await fetch('/api/auth/refresh-token', {
+      const response = await fetch(`${getApiBaseUrl()}/api/auth/refresh-token`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.authState.token}`,
@@ -357,7 +357,7 @@ class AuthService {
         throw new Error('未登录');
       }
 
-      const response = await fetch('/api/auth/analysis-stats', {
+      const response = await fetch(`${getApiBaseUrl()}/api/auth/analysis-stats`, {
         headers: {
           'Authorization': `Bearer ${this.authState.token}`,
         },
@@ -384,7 +384,7 @@ class AuthService {
         throw new Error('未登录');
       }
 
-      const response = await fetch('/api/auth/invitation-info', {
+      const response = await fetch(`${getApiBaseUrl()}/api/auth/invitation-info`, {
         headers: {
           'Authorization': `Bearer ${this.authState.token}`,
         },

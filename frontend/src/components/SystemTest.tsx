@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Space, Typography, Alert, Divider, Tag, Row, Col } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined } from '@ant-design/icons';
-import { API_BASE_URL } from '../config';
+import { getApiBaseUrl } from '../config';
 import authService from '../services/authService';
 
 const { Title, Text, Paragraph } = Typography;
@@ -47,7 +47,7 @@ const SystemTest: React.FC = () => {
 
       // 测试2: API连接测试
       try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/health`);
+        const response = await fetch(`${getApiBaseUrl()}/api/auth/health`);
         if (response.ok) {
           const data = await response.json();
           updateTest(1, 'success', `API状态: ${data.status}`);
@@ -60,7 +60,7 @@ const SystemTest: React.FC = () => {
 
       // 测试3: 健康检查
       try {
-        const response = await fetch('/api/auth/health');
+        const response = await fetch(`${getApiBaseUrl()}/api/auth/health`);
         if (response.ok) {
           const data = await response.json();
           const dbStatus = data.database === 'ok';
@@ -81,7 +81,7 @@ const SystemTest: React.FC = () => {
 
       // 测试4: 邮箱验证服务
       try {
-        const response = await fetch('/api/auth/health');
+        const response = await fetch(`${getApiBaseUrl()}/api/auth/health`);
         if (response.ok) {
           const data = await response.json();
           const emailVerificationStatus = data.email_verification === 'ok';

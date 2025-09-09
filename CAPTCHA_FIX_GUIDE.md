@@ -1,4 +1,4 @@
-# 数学题验证码 Cloudflare 部署修复指南
+# 数学题验证码 Cloudflare 部署修复指南 ✅ 已修复
 
 ## 问题描述
 
@@ -6,11 +6,12 @@
 
 ## 问题原因分析
 
-经过分析，问题的根本原因是：
+经过深入分析，问题的根本原因是：
 
 1. **API 调用路径问题**：前端组件使用相对路径（如 `/api/auth/captcha`）调用 API
 2. **环境配置不一致**：本地开发时前后端在同一域名下，生产环境分别部署在不同域名
-3. **代理配置差异**：开发环境使用 `package.json` 中的 `proxy` 配置，生产环境需要直接调用后端域名
+3. **构建时环境检测失效**：`window.location` 在构建时不可用，导致环境检测逻辑失效
+4. **多个文件中存在相对路径调用**：不仅仅是 CaptchaInput.tsx，还有多个其他文件
 
 ### 架构对比
 
@@ -26,56 +27,59 @@
 
 ## 修复方案
 
-### 1. 统一 API 基础 URL 配置
+### 1. 创建生产环境配置文件
 
-创建了智能的环境检测配置 `frontend/src/config.ts`：
+创建 `frontend/.env.production` 文件：
 
-```typescript
-const getApiBaseUrl = (): string => {
-  // 生产环境检测
-  if (window.location.hostname === 'zhenyan.asia' || window.location.hostname === 'www.zhenyan.asia') {
-    return 'https://api.zhenyan.asia';
-  }
-  
-  // 开发环境
-  return process.env.REACT_APP_API_URL || 'http://localhost:8000';
-};
-
-export const API_BASE_URL = getApiBaseUrl();
+```env
+REACT_APP_API_URL=https://api.zhenyan.asia
 ```
 
-### 2. 修复所有相对路径 API 调用
+### 2. 优化 API 基础 URL 配置
 
-修复了以下文件中的 API 调用：
+更新 `frontend/src/config.ts`：
 
-#### `frontend/src/components/CaptchaInput.tsx`
+```typescript
+export const getApiBaseUrl = (): string => {
+  // 优先使用环境变量（构建时确定）
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+
+  // 运行时动态检测（备用方案）
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname === 'zhenyan.asia' || window.location.hostname === 'www.zhenyan.asia') {
+      return 'https://api.zhenyan.asia';
+    }
+  }
+
+  // 默认开发环境
+  return 'http://localhost:8000';
+};
+```
+
+### 3. 修复所有相对路径 API 调用
+
+修复了以下文件中的所有 API 调用（共计 15+ 处）：
+
+#### 修复的文件列表：
+- `frontend/src/components/CaptchaInput.tsx` - 验证码获取
+- `frontend/src/components/AuthForm.tsx` - 登录/注册/发送验证码 (3处)
+- `frontend/src/components/SystemTest.tsx` - 系统测试 (2处)
+- `frontend/src/components/DebugPanel.tsx` - 调试面板 (2处)
+- `frontend/src/components/UserDashboard.tsx` - 用户面板退出登录
+- `frontend/src/services/authService.ts` - 认证服务 (7处)
+- `frontend/src/services/api.ts` - API 服务基础配置
+
+#### 修复方式：
 ```typescript
 // 修复前
 const response = await fetch('/api/auth/captcha');
 
 // 修复后
-import { API_BASE_URL } from '../config';
-const response = await fetch(`${API_BASE_URL}/api/auth/captcha`);
+import { getApiBaseUrl } from '../config';
+const response = await fetch(`${getApiBaseUrl()}/api/auth/captcha`);
 ```
-
-#### `frontend/src/components/AuthForm.tsx`
-```typescript
-// 修复了三个 API 调用
-- `/api/auth/send-verification-code` → `${API_BASE_URL}/api/auth/send-verification-code`
-- `/api/auth/register` → `${API_BASE_URL}/api/auth/register`
-- `/api/auth/login` → `${API_BASE_URL}/api/auth/login`
-```
-
-#### `frontend/src/services/api.ts`
-```typescript
-// 统一使用配置的 API_BASE_URL
-import { API_BASE_URL } from '../config';
-```
-
-#### 其他修复的文件
-- `frontend/src/components/SystemTest.tsx`
-- `frontend/src/components/DebugPanel.tsx`
-- `frontend/src/services/authService.ts`
 
 ## 验证修复效果
 
