@@ -161,38 +161,30 @@ function App() {
 
   // 注意：分析逻辑现在由 ProgressDisplay 组件处理
 
-  // 退出登录处理
-  const handleLogout = async () => {
-    console.log('App.tsx: handleLogout 被调用'); // 调试日志
-
-    try {
-      console.log('App.tsx: 开始调用 authService.logout()'); // 调试日志
-      // 先调用authService.logout()清除认证状态
-      await authService.logout();
-      console.log('App.tsx: authService.logout() 完成'); // 调试日志
-
-      console.log('App.tsx: 开始更新应用状态'); // 调试日志
-      // 然后更新应用状态
-      updateAppState({
-        currentStep: 'auth',
-        authState: authService.getAuthState(), // 现在获取的是已清除的状态
-        analysisReport: null,
-        userBackground: null,
-        errorMessage: ''
-      });
-      console.log('App.tsx: 应用状态更新完成'); // 调试日志
-    } catch (error) {
-      console.error('App.tsx: 退出登录失败:', error);
-      // 即使出错也要清除本地状态
-      updateAppState({
-        currentStep: 'auth',
-        authState: authService.getAuthState(),
-        analysisReport: null,
-        userBackground: null,
-        errorMessage: ''
-      });
-    }
-  };
+  // 注意：退出登录功能现在直接在 UserDashboard 组件中处理
+  // 这里保留 handleLogout 函数以备将来需要时使用
+  // const handleLogout = async () => {
+  //   console.log('App.tsx: handleLogout 被调用'); // 调试日志
+  //   try {
+  //     await authService.logout();
+  //     updateAppState({
+  //       currentStep: 'auth',
+  //       authState: authService.getAuthState(),
+  //       analysisReport: null,
+  //       userBackground: null,
+  //       errorMessage: ''
+  //     });
+  //   } catch (error) {
+  //     console.error('App.tsx: 退出登录失败:', error);
+  //     updateAppState({
+  //       currentStep: 'auth',
+  //       authState: authService.getAuthState(),
+  //       analysisReport: null,
+  //       userBackground: null,
+  //       errorMessage: ''
+  //     });
+  //   }
+  // };
 
   const handleFormSubmit = async (userBackground: UserBackground) => {
     console.log('handleFormSubmit called with:', userBackground);

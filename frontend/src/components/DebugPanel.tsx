@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Button, Input, Card, Typography, Space, Alert, Divider } from 'antd';
-import { ApiOutlined, BugOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { ApiOutlined, BugOutlined, CheckCircleOutlined } from '@ant-design/icons';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 interface DebugPanelProps {
   visible?: boolean;
@@ -192,9 +192,9 @@ const DebugPanel: React.FC<DebugPanelProps> = ({ visible = false }) => {
         <div>
           <Text strong>服务地址:</Text>
           <Paragraph style={{ fontSize: 12, marginTop: 8 }}>
-            前端: <a href="http://localhost:3001" target="_blank">localhost:3001</a><br/>
-            后端: <a href="http://localhost:8000" target="_blank">localhost:8000</a><br/>
-            API文档: <a href="http://localhost:8000/docs" target="_blank">API Docs</a>
+            前端: <a href="http://localhost:3001" target="_blank" rel="noreferrer">localhost:3001</a><br/>
+            后端: <a href="http://localhost:8000" target="_blank" rel="noreferrer">localhost:8000</a><br/>
+            API文档: <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer">API Docs</a>
           </Paragraph>
         </div>
       </Space>

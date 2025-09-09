@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Input, Button, Space, message, Spin } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 
@@ -19,11 +19,11 @@ const CaptchaInput: React.FC<CaptchaInputProps> = ({ onCaptchaChange, disabled =
   const [loading, setLoading] = useState(false);
 
   // 获取CAPTCHA
-  const fetchCaptcha = async () => {
+  const fetchCaptcha = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/auth/captcha');
-      
+
       if (response.ok) {
         const data = await response.json();
         const newCaptchaData: CaptchaData = {
@@ -47,7 +47,7 @@ const CaptchaInput: React.FC<CaptchaInputProps> = ({ onCaptchaChange, disabled =
     } finally {
       setLoading(false);
     }
-  };
+  }, [onCaptchaChange]);
 
   // 处理答案输入
   const handleAnswerChange = (value: string) => {
@@ -58,7 +58,7 @@ const CaptchaInput: React.FC<CaptchaInputProps> = ({ onCaptchaChange, disabled =
   // 组件挂载时获取CAPTCHA
   useEffect(() => {
     fetchCaptcha();
-  }, []);
+  }, [fetchCaptcha]);
 
   return (
     <div>
