@@ -76,6 +76,7 @@ class UserLoginRequest(BaseModel):
     phone: str
     email: EmailStr
     verification_code: str
+    profile_data: Optional[UserProfileData] = None  # 个人信息数据，用于自动创建账户时保存
 
 class SendVerificationCodeRequest(BaseModel):
     """发送验证码请求"""

@@ -571,7 +571,7 @@ class UserService:
             logger.error(f"处理邀请码使用失败: {str(e)}")
             # 不抛出异常，避免影响用户注册
 
-    async def login_user(self, phone: str, email: str, verification_code: str) -> Dict[str, Any]:
+    async def login_user(self, phone: str, email: str, verification_code: str, profile_data: Optional[UserProfileData] = None) -> Dict[str, Any]:
         """用户登录 - 如果用户不存在则自动创建账户"""
         try:
             if not self.client:
@@ -594,7 +594,7 @@ class UserService:
                 await self.verify_email_code(email, phone, verification_code)
 
                 # 调用注册逻辑创建用户（不再验证验证码，因为已经验证过了）
-                user_info = await self._create_user_without_code_verification(phone, email, None, None)
+                user_info = await self._create_user_without_code_verification(phone, email, None, profile_data)
 
                 # 重新查询用户信息
                 user_result = self.client.table('users')\

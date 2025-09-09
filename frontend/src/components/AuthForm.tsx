@@ -169,6 +169,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
           phone: values.phone,
           email: values.email,
           verification_code: values.verification_code,
+          profile_data: userBackground || null, // 添加个人信息数据，用于自动创建账户时保存
         }),
       });
 

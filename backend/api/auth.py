@@ -171,7 +171,7 @@ async def login_user(
 ):
     """用户登录"""
     try:
-        login_data = await service.login_user(request.phone, request.email, request.verification_code)
+        login_data = await service.login_user(request.phone, request.email, request.verification_code, request.profile_data)
         
         return LoginResponse(
             access_token=login_data['access_token'],
