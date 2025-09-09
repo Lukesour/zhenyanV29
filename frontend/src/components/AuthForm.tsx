@@ -3,6 +3,7 @@ import { Form, Input, Button, Card, Row, Col, message, Typography, Space, Tabs, 
 import { MailOutlined, PhoneOutlined, SafetyOutlined, GiftOutlined } from '@ant-design/icons';
 import CaptchaInput from './CaptchaInput';
 import { UserBackground } from '../services/api';
+import authService from '../services/authService';
 import './AuthForm.css';
 
 const { Title, Text } = Typography;
@@ -18,10 +19,14 @@ interface UserInfo {
   id: number;
   phone: string;
   email: string;
+  status: string;
   remaining_analyses: number;
   total_analyses_used: number;
   invitation_code: string;
   invited_count: number;
+  created_at: string;
+  last_login_at?: string;
+  profile_data?: any;
 }
 
 interface LoginResponse {
@@ -132,11 +137,13 @@ const AuthForm: React.FC<AuthFormProps> = ({
         const data: LoginResponse = await response.json();
         message.success('注册成功！欢迎使用箴言留学');
 
-        // 保存用户信息和令牌
-        localStorage.setItem('access_token', data.access_token);
-        localStorage.setItem('user_info', JSON.stringify(data.user_info));
+        // 使用authService设置认证状态，这会同时更新localStorage和内部状态
+        authService.setAuthState(data);
 
-        onAuthSuccess(data.user_info);
+        // 等待一小段时间确保状态更新完成，然后调用成功回调
+        setTimeout(() => {
+          onAuthSuccess(data.user_info);
+        }, 100);
       } else {
         const errorData = await response.json();
         message.error(errorData.detail || '注册失败');
@@ -169,11 +176,13 @@ const AuthForm: React.FC<AuthFormProps> = ({
         const data: LoginResponse = await response.json();
         message.success('登录成功！');
 
-        // 保存用户信息和令牌
-        localStorage.setItem('access_token', data.access_token);
-        localStorage.setItem('user_info', JSON.stringify(data.user_info));
+        // 使用authService设置认证状态，这会同时更新localStorage和内部状态
+        authService.setAuthState(data);
 
-        onAuthSuccess(data.user_info);
+        // 等待一小段时间确保状态更新完成，然后调用成功回调
+        setTimeout(() => {
+          onAuthSuccess(data.user_info);
+        }, 100);
       } else {
         const errorData = await response.json();
         message.error(errorData.detail || '登录失败');

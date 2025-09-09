@@ -99,8 +99,11 @@ function App() {
   // }, [appState.currentStep, validateStateTransition, updateAppState]);
 
   // 认证成功处理
-  const handleAuthSuccess = (userInfo: UserInfo) => {
+  const handleAuthSuccess = async (userInfo: UserInfo) => {
     console.log('User authenticated:', userInfo);
+
+    // 更新认证状态
+    const newAuthState = authService.getAuthState();
 
     // 如果有保存的用户背景数据，登录后直接开始分析
     if (appState.userBackground) {
@@ -108,16 +111,28 @@ function App() {
         currentStep: 'progress',
         isProgressActive: true,
         isLoading: true,
-        authState: authService.getAuthState()
+        authState: newAuthState
       });
 
-      // 开始分析
-      startAnalysis(appState.userBackground);
+      // 等待状态更新完成后再开始分析
+      setTimeout(async () => {
+        try {
+          await startAnalysis(appState.userBackground!);
+        } catch (error) {
+          console.error('Analysis failed after auth:', error);
+          updateAppState({
+            currentStep: 'error',
+            errorMessage: error instanceof Error ? error.message : '分析失败，请稍后重试',
+            isLoading: false,
+            isProgressActive: false
+          });
+        }
+      }, 200);
     } else {
       // 否则回到表单页面，如果用户有个人信息，会自动填入表单
       updateAppState({
         currentStep: 'form',
-        authState: authService.getAuthState()
+        authState: newAuthState
       });
     }
   };

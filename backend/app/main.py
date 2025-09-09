@@ -122,6 +122,14 @@ async def handle_http_exception(request: Request, exc: HTTPException):
         return _build_error_response(
             code="INVALID_INPUT", http_status=400, message=detail, retryable=False
         )
+    if status == 401:
+        return _build_error_response(
+            code="UNAUTHORIZED", http_status=401, message=detail, retryable=False
+        )
+    if status == 403:
+        return _build_error_response(
+            code="FORBIDDEN", http_status=403, message=detail, retryable=False
+        )
     if status == 404:
         return _build_error_response(
             code="NOT_FOUND", http_status=404, message=detail, retryable=False
