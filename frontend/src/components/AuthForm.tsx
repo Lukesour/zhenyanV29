@@ -3,6 +3,7 @@ import { Form, Input, Button, Card, Row, Col, message, Typography, Space, Tabs, 
 import { MailOutlined, PhoneOutlined, SafetyOutlined, GiftOutlined } from '@ant-design/icons';
 import CaptchaInput from './CaptchaInput';
 import { UserBackground } from '../services/api';
+import { API_BASE_URL } from '../config';
 import authService from '../services/authService';
 import './AuthForm.css';
 
@@ -62,7 +63,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
         return false;
       }
 
-      const response = await fetch('/api/auth/send-verification-code', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/send-verification-code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -122,7 +123,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
     try {
       setIsLoading(true);
 
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -163,7 +164,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
     try {
       setIsLoading(true);
 
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

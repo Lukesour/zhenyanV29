@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>验证码修复测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { border-color: #52c41a; background-color: #f6ffed; }
+        .error { border-color: #ff4d4f; background-color: #fff2f0; }
+        .loading { border-color: #1890ff; background-color: #e6f7ff; }
+        button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #40a9ff; }
+        button:disabled { background: #d9d9d9; cursor: not-allowed; }
+        .result {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .captcha-display {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1890ff;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 验证码修复测试</h1>
+        <p>此页面用于测试数学题验证码在 Cloudflare 部署环境下的显示问题修复。</p>
+        
+        <div id="test1" class="test-section">
+            <h3>测试 1: 直接 API 调用</h3>
+            <p>测试直接调用后端 API 获取验证码</p>
+            <button onclick="testDirectAPI()">测试直接 API</button>
+            <div id="result1" class="result"></div>
+        </div>
+
+        <div id="test2" class="test-section">
+            <h3>测试 2: 环境检测</h3>
+            <p>检测当前环境和 API 基础 URL 配置</p>
+            <button onclick="testEnvironment()">检测环境</button>
+            <div id="result2" class="result"></div>
+        </div>
+
+        <div id="test3" class="test-section">
+            <h3>测试 3: 模拟前端组件调用</h3>
+            <p>模拟前端 CaptchaInput 组件的调用方式</p>
+            <button onclick="testFrontendCall()">测试前端调用</button>
+            <div id="result3" class="result"></div>
+            <div id="captcha3" class="captcha-display"></div>
+        </div>
+
+        <div id="test4" class="test-section">
+            <h3>测试 4: 网络连通性</h3>
+            <p>测试到各个端点的网络连通性</p>
+            <button onclick="testConnectivity()">测试连通性</button>
+            <div id="result4" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        // 环境检测函数（复制自 config.ts）
+        function getApiBaseUrl() {
+            if (window.location.hostname === 'zhenyan.asia' || window.location.hostname === 'www.zhenyan.asia') {
+                return 'https://api.zhenyan.asia';
+            }
+            return 'http://localhost:8000';
+        }
+
+        function updateTestResult(testId, status, message) {
+            const testDiv = document.getElementById(testId);
+            const resultDiv = document.getElementById(`result${testId.slice(-1)}`);
+            
+            testDiv.className = `test-section ${status}`;
+            resultDiv.textContent = message;
+            resultDiv.className = `result ${status}`;
+        }
+
+        async function testDirectAPI() {
+            updateTestResult('test1', 'loading', '正在测试直接 API 调用...');
+            
+            try {
+                const apiUrl = getApiBaseUrl();
+                console.log('使用 API URL:', apiUrl);
+                
+                const response = await fetch(`${apiUrl}/api/auth/captcha`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    updateTestResult('test1', 'success', 
+                        `✅ API 调用成功！\n` +
+                        `状态码: ${response.status}\n` +
+                        `验证码ID: ${data.captcha_id}\n` +
+                        `数学题: ${data.question}\n` +
+                        `会话ID: ${data.session_id}`
+                    );
+                } else {
+                    updateTestResult('test1', 'error', 
+                        `❌ API 调用失败\n状态码: ${response.status}\n响应: ${await response.text()}`
+                    );
+                }
+            } catch (error) {
+                updateTestResult('test1', 'error', `❌ 网络错误: ${error.message}`);
+            }
+        }
+
+        async function testEnvironment() {
+            updateTestResult('test2', 'loading', '正在检测环境...');
+            
+            const apiUrl = getApiBaseUrl();
+            const hostname = window.location.hostname;
+            const protocol = window.location.protocol;
+            const port = window.location.port;
+            
+            updateTestResult('test2', 'success', 
+                `✅ 环境检测完成\n` +
+                `当前域名: ${hostname}\n` +
+                `协议: ${protocol}\n` +
+                `端口: ${port || '默认'}\n` +
+                `API 基础 URL: ${apiUrl}\n` +
+                `是否生产环境: ${hostname.includes('zhenyan.asia') ? '是' : '否'}`
+            );
+        }
+
+        async function testFrontendCall() {
+            updateTestResult('test3', 'loading', '正在模拟前端组件调用...');
+            
+            try {
+                const apiUrl = getApiBaseUrl();
+                const response = await fetch(`${apiUrl}/api/auth/captcha`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // 显示验证码
+                    const captchaDiv = document.getElementById('captcha3');
+                    captchaDiv.innerHTML = `<strong>验证码：</strong>${data.question}`;
+                    
+                    updateTestResult('test3', 'success', 
+                        `✅ 前端组件调用成功！\n` +
+                        `这模拟了 CaptchaInput 组件的行为\n` +
+                        `验证码已显示在上方`
+                    );
+                } else {
+                    updateTestResult('test3', 'error', 
+                        `❌ 前端组件调用失败\n状态码: ${response.status}`
+                    );
+                }
+            } catch (error) {
+                updateTestResult('test3', 'error', `❌ 前端组件调用错误: ${error.message}`);
+            }
+        }
+
+        async function testConnectivity() {
+            updateTestResult('test4', 'loading', '正在测试网络连通性...');
+            
+            const endpoints = [
+                { name: '后端健康检查', url: `${getApiBaseUrl()}/health` },
+                { name: '认证健康检查', url: `${getApiBaseUrl()}/api/auth/health` },
+                { name: '验证码端点', url: `${getApiBaseUrl()}/api/auth/captcha` }
+            ];
+            
+            let results = [];
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const start = Date.now();
+                    const response = await fetch(endpoint.url);
+                    const duration = Date.now() - start;
+                    
+                    results.push(`${endpoint.name}: ✅ ${response.status} (${duration}ms)`);
+                } catch (error) {
+                    results.push(`${endpoint.name}: ❌ ${error.message}`);
+                }
+            }
+            
+            updateTestResult('test4', 'success', results.join('\n'));
+        }
+
+        // 页面加载时自动运行环境检测
+        window.addEventListener('load', () => {
+            testEnvironment();
+        });
+    </script>
+</body>
+</html>

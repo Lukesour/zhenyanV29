@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Input, Card, Typography, Space, Alert, Divider } from 'antd';
 import { ApiOutlined, BugOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { API_BASE_URL } from '../config';
 
 const { Text, Paragraph } = Typography;
 
@@ -27,7 +28,7 @@ const DebugPanel: React.FC<DebugPanelProps> = ({ visible = false }) => {
       console.log('📧 邮箱:', email);
       console.log('📱 手机:', phone);
 
-      const response = await fetch('/api/auth/send-verification-code', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/send-verification-code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -64,7 +65,7 @@ const DebugPanel: React.FC<DebugPanelProps> = ({ visible = false }) => {
     setError(null);
 
     try {
-      const response = await fetch('/api/auth/health');
+      const response = await fetch(`${API_BASE_URL}/api/auth/health`);
       const data = await response.json();
 
       if (response.ok) {
