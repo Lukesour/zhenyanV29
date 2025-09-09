@@ -219,7 +219,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
               <div className="contact-content">
                 <div className="contact-header">
                   <Title level={4} className="contact-title">
-                    需要帮助？
+                    免费一对一定位，匹配所有的院校专业！
                   </Title>
                   <Text type="secondary" className="contact-subtitle">
                     联系我们的客服团队
@@ -239,22 +239,23 @@ const AuthForm: React.FC<AuthFormProps> = ({
 
                 <div className="contact-details">
                   <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                    <div className="contact-item">
-                      <Text strong className="contact-label">服务时间</Text>
-                      <Text className="contact-value">周一至周日 9:00-21:00</Text>
-                    </div>
-                    <div className="contact-item">
-                      <Text strong className="contact-label">响应时间</Text>
-                      <Text className="contact-value">通常在1小时内回复</Text>
-                    </div>
-                    <div className="contact-item">
-                      <Text strong className="contact-label">服务内容</Text>
-                      <Text className="contact-value">
-                        • 注册登录问题<br/>
-                        • 留学申请咨询<br/>
-                        • 技术支持服务
-                      </Text>
-                    </div>
+                <div className="wechat-info">
+                  <Space direction="vertical" size="small" className="wechat-details">
+                    <Text strong>公众号名称：</Text>
+                    <Text copyable className="wechat-id">箴言留学</Text>
+
+                    <Text strong>客服微信号1：</Text>
+                    <Text copyable className="wechat-id">Godeternitys</Text>
+
+                    <Text strong>客服微信号2：</Text>
+                    <Text copyable className="wechat-id">MalachiSuan</Text>
+
+                    <Text strong>客服服务时间：</Text>
+                    <Text>周一至周日 9:00-21:00</Text>
+                    
+
+                  </Space>
+                </div>
                   </Space>
                 </div>
               </div>
